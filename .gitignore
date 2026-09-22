@@ -1,0 +1,26 @@
+# Dependencies and generated files
+node_modules/
+dist/
+build/
+bin/
+.gradle/
+coverage/
+*.log
+*error.txt
+
+# Local credentials and configuration
+.env
+.env.*
+!.env.example
+application-local.properties
+application-local.yml
+application-local.yaml
+*.pem
+*.key
+
+# Editors and OS
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
