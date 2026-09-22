@@ -24,3 +24,7 @@ application-local.yaml
 *.iml
 .DS_Store
 Thumbs.db
+
+# Browser verification output
+playwright-report/
+test-results/

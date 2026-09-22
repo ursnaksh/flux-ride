@@ -1,30 +1,14 @@
-const STATUS_LABELS = {
-  REQUESTED: 'Requested',
-  ACCEPTED: 'Accepted',
-  ONGOING: 'Ongoing',
-  COMPLETED: 'Completed'
-};
-
+import { Link } from 'react-router-dom';
+import { formatDeparture, isFuture, money } from '../utils/trips';
 export default function RideCard({ ride }) {
-  return (
-    <div className="card ride-card">
-      <div className="card-row">
-        <div>
-          <p className="card-eyebrow">Solo ride</p>
-          <h3 className="card-title">{ride.pickup} → {ride.drop}</h3>
-        </div>
-        <span className={`status-badge status-${ride.status.toLowerCase()}`}>
-          {STATUS_LABELS[ride.status] || ride.status}
-        </span>
-      </div>
-
-      <div className="card-meta">
-        <span>{ride.distanceKm} km</span>
-        <span className="dot">•</span>
-        <span>₹{ride.fare.toFixed(2)}</span>
-        <span className="dot">•</span>
-        <span>{ride.driverName ? `Driver: ${ride.driverName}` : 'Waiting for a driver'}</span>
-      </div>
-    </div>
-  );
+  const canSearch = ride.status === 'SEARCHING' && isFuture(ride.departureTime);
+  return <article className="card request-card">
+    <div className="card-row"><div><p className="eyebrow">REQUEST #{ride.id}</p><h3>{ride.pickup} <span aria-hidden="true">→</span> {ride.drop}</h3></div>
+      <span className={`status-badge status-${ride.status?.toLowerCase()}`}>{ride.status}</span></div>
+    <p className="departure-line">{formatDeparture(ride.departureTime)}</p>
+    <p className="quiet-note">{ride.distanceKm} km · Estimated total fare {money(ride.fare)}</p>
+    {canSearch && <Link className="btn btn-primary" to={`/find?request=${ride.id}`}>Find matches →</Link>}
+    {ride.status === 'SEARCHING' && !canSearch && <p className="quiet-note">This departure time has passed. Create a new request for a future trip.</p>}
+    {ride.status === 'MATCHED' && <p className="quiet-note">You joined a group with this request. See your shared trips for group details.</p>}
+  </article>;
 }

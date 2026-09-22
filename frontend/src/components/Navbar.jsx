@@ -1,60 +1,28 @@
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-
-function FluxLogo() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="16" cy="16" r="16" fill="#4F46E5" />
-      <path d="M17.5 7L10 18h5l-1 7 8-11h-5l0.5-7z" fill="#14B8A6" />
-    </svg>
-  );
-}
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const userName = localStorage.getItem('flux_user_name');
-  const role = localStorage.getItem('flux_role');
-
-  const handleLogout = () => {
-    localStorage.removeItem('flux_user_id');
-    localStorage.removeItem('flux_user_name');
-    localStorage.removeItem('flux_role');
-    localStorage.removeItem('flux_driver_id');
+  const name = localStorage.getItem('flux_user_name');
+  const signedIn = localStorage.getItem('flux_role') === 'USER' && Number(localStorage.getItem('flux_user_id')) > 0;
+  function logout() {
+    ['flux_user_id', 'flux_user_name', 'flux_role', 'flux_driver_id'].forEach(key => localStorage.removeItem(key));
     navigate('/login');
-  };
-
-  const isActive = (path) => location.pathname === path;
-
-  return (
+  }
+  return <>
+    <a className="skip-link" href="#main-content">Skip to content</a>
     <header className="navbar">
-      <Link to="/" className="navbar-brand">
-        <FluxLogo />
-        <span>Flux</span>
+      <Link to="/" className="navbar-brand" aria-label="FLUX RIDE home">
+        <span className="brand-mark" aria-hidden="true">↗</span><span>FLUX <span className="brand-light">RIDE</span></span>
       </Link>
-
-      {userName && (
-        <nav className="navbar-links">
-          {role === 'DRIVER' ? (
-            <Link className={isActive('/driver') ? 'active' : ''} to="/driver">Driver panel</Link>
-          ) : <>
-            <Link className={isActive('/') ? 'active' : ''} to="/">Home</Link>
-            <Link className={isActive('/book') ? 'active' : ''} to="/book">Book Solo</Link>
-            <Link className={isActive('/pool') ? 'active' : ''} to="/pool">Pool a Ride</Link>
-            <Link className={isActive('/my-rides') ? 'active' : ''} to="/my-rides">My Rides</Link>
-          </>}
-        </nav>
-      )}
-
-      <div className="navbar-right">
-        {userName ? (
-          <>
-            <span className="navbar-user">Hi, {userName.split(' ')[0]}</span>
-            <button className="btn btn-ghost" onClick={handleLogout}>Log out</button>
-          </>
-        ) : (
-          <Link className="btn btn-primary" to="/login">Log in</Link>
-        )}
-      </div>
+      {signedIn && <nav className="navbar-links" aria-label="Main navigation">
+        <NavLink to="/" end>Overview</NavLink>
+        <NavLink to="/find">Find Co-Passengers</NavLink>
+        <NavLink to="/my-trips">My trips</NavLink>
+      </nav>}
+      <div className="navbar-right">{signedIn ? <>
+        <span className="navbar-user">Hi, {name?.split(' ')[0] || 'there'}</span>
+        <button className="btn btn-ghost" onClick={logout}>Log out</button>
+      </> : <Link className="btn btn-primary" to="/login">Get started</Link>}</div>
     </header>
-  );
+  </>;
 }

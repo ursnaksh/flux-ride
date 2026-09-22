@@ -3,61 +3,29 @@ import { Link } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 
 export default function Home() {
-  const [activeCount, setActiveCount] = useState(null);
-  const [countError, setCountError] = useState('');
-  const userName = localStorage.getItem('flux_user_name') || 'there';
-
+  const [count, setCount] = useState(null);
+  const name = localStorage.getItem('flux_user_name') || 'there';
   useEffect(() => {
-    let cancelled = false;
-
-    async function fetchCount() {
-      try {
-        const response = await axiosClient.get('/api/pools/active/count');
-        if (!cancelled) setActiveCount(response.data.count);
-      } catch (err) {
-        if (!cancelled) setCountError(err.message);
-      }
-    }
-
-    fetchCount();
-    return () => { cancelled = true; };
+    const controller = new AbortController();
+    axiosClient.get('/api/pools/active/count', { signal: controller.signal })
+      .then(response => { if (!controller.signal.aborted) setCount(response.data); })
+      .catch(() => {});
+    return () => controller.abort();
   }, []);
-
-  return (
-    <div className="home-page">
-      <section className="hero">
-        <p className="hero-eyebrow">Welcome back, {userName.split(' ')[0]}</p>
-        <h1 className="hero-title">Your ride dashboard.</h1>
-        <p className="hero-subtitle">
-          Request a cab, then follow its status as a driver accepts it. Or pool
-          your route with riders headed the same way and split the fare.
-        </p>
-
-        <div className="hero-stat">
-          {countError ? (
-            <span className="hero-stat-error">Couldn't load live pool count</span>
-          ) : (
-            <>
-              <span className="hero-stat-number">{activeCount === null ? '—' : activeCount}</span>
-              <span className="hero-stat-label">active pools right now</span>
-            </>
-          )}
-        </div>
-      </section>
-
-      <section className="cta-grid">
-        <Link to="/book" className="cta-card cta-solo">
-          <h2>Ride Now</h2>
-          <p>Send a solo ride request with an instant fare estimate, then wait for a driver to accept.</p>
-          <span className="cta-arrow-text">Request a solo ride</span>
-        </Link>
-
-        <Link to="/pool" className="cta-card cta-pool">
-          <h2>Pool &amp; Save</h2>
-          <p>Match with riders on your route and split the fare — up to 4 people per pool.</p>
-          <span className="cta-arrow-text">Find or start a pool</span>
-        </Link>
-      </section>
-    </div>
-  );
+  return <div className="home-page">
+    <section className="hero ride-hero">
+      <div><p className="hero-eyebrow">WELCOME BACK, {name.split(' ')[0].toUpperCase()}</p>
+        <h1 className="hero-title">Same direction.<br /><span>Better company.</span></h1>
+        <p className="hero-subtitle">Find people travelling your way. Compare compatible groups, choose your company, and plan the journey together.</p>
+        <Link to="/find" className="btn hero-button">Find Co-Passengers <span aria-hidden="true">↗</span></Link>
+        {typeof count === 'number' && <p className="hero-live"><span aria-hidden="true">●</span> {count} active shared {count === 1 ? 'trip' : 'trips'}</p>}
+      </div>
+      <div className="journey-art" aria-hidden="true"><div className="journey-stop">01 <span>Your pickup</span></div><div className="journey-track"><span>↗</span></div><div className="journey-stop">02 <span>A shared destination</span></div><div className="journey-caption">A little planning.<br />A better journey.</div></div>
+    </section>
+    <div className="section-heading"><div><p className="eyebrow">HOW IT WORKS</p><h2>Your trip. Your choice.</h2></div><Link to="/my-trips" className="text-link">View my trips →</Link></div>
+    <section className="how-grid" aria-label="How FLUX RIDE works">
+      {[['01', 'Share your plans', 'Add your pickup, destination and departure time.'], ['02', 'Find your group', 'Compare match scores, reasons and available seats.'], ['03', 'Go together', 'Join the group you choose. Arrange your cab or auto separately.']].map(([step, title, text]) =>
+        <article className="how-card" key={step}><span className="step-number">{step}</span><h3>{title}</h3><p>{text}</p></article>)}
+    </section>
+  </div>;
 }

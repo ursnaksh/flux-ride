@@ -8,7 +8,7 @@ Trip Request → compatible shared trips → compatibility score and reasons →
 
 External Uber/Ola/auto/cab booking is a separate user action. This project does not provide drivers or book transport.
 
-The backend supports destination, pickup-word similarity and departure-time matching, membership validation, duplicate protection and a transactional SEARCHING → MATCHED transition. The frontend is still the legacy UI; Find Co-Passengers is the next development step. Some old frontend routes do not match the current backend yet.
+The backend supports destination, pickup-word similarity and departure-time matching, membership validation, duplicate protection and a transactional SEARCHING → MATCHED transition. The frontend now supports passenger registration/login, a request form with departure time, percentage match cards and reasons, explicit group joining, and request/shared-trip history. Saved request URLs reload their state from the backend.
 
 This is a clean source snapshot of the reviewed project. Earlier local Git history, bundled dependencies, generated output and embedded database credentials are intentionally excluded. Keep the old local project as a history backup.
 
@@ -47,7 +47,19 @@ npm ci
 npm run dev
 ```
 
-The committed lockfile fixes dependency resolution. Backend API integration in the legacy screens remains to be updated.
+The committed lockfile fixes dependency resolution. Open the Vite URL printed in the terminal (normally http://localhost:5173). Keep the backend running on port 8080 in another terminal. Optionally set `VITE_API_BASE_URL` in a local `frontend/.env.local` when using a different backend address.
+
+The form saves a request, then displays compatible existing groups. No-match results keep the request SEARCHING and offer refresh; this frontend does not call the legacy automatic join/create API. You can reuse groups already created during backend testing. Creating a brand-new group through the frontend is not implemented in this phase.
+
+### Browser tests
+
+```powershell
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+```
+
+These Chromium tests use API contract fixtures named Nagesh, Swapnil and Tanishka. They cover the UI and error recovery without touching MySQL; they are not live Spring/MySQL integration tests.
 
 ## API used by the new frontend
 
