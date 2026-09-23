@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import Loader from '../components/Loader';
 import PoolCard from '../components/PoolCard';
-import { GroupMap } from '../components/OpenStreetMap';
+import { GroupMap, resolveMeetingPlace } from '../components/OpenStreetMap';
 
 function suggestedMeetingPoint(group) {
   const pickups = (group?.members || [])
@@ -38,7 +38,7 @@ function suggestedMeetingPoint(group) {
       if (best) {
         return {
           ...best,
-          label: 'Suggested meeting point · near the center of the group, on the shared route'
+          label: 'Suggested meeting point'
         };
       }
     }
@@ -48,8 +48,26 @@ function suggestedMeetingPoint(group) {
 
   return {
     ...center,
-    label: 'Suggested meeting area · midpoint of passenger pickups'
+    label: 'Suggested meeting area'
   };
+}
+
+function countdownLabel(departureTime, now) {
+  if (!departureTime) return '';
+  const difference = new Date(departureTime).getTime() - now;
+  if (!Number.isFinite(difference)) return '';
+  if (difference <= -30 * 60 * 1000) return 'Departure time passed';
+  if (difference <= 0) return 'Time to leave';
+
+  const totalMinutes = Math.ceil(difference / 60000);
+  if (totalMinutes < 60) return `Leaving in ${totalMinutes} min`;
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours < 24) return `Leaving in ${hours}h ${minutes}m`;
+
+  const days = Math.floor(hours / 24);
+  return `Leaving in ${days}d ${hours % 24}h`;
 }
 
 export default function GroupRoom() {
@@ -58,10 +76,19 @@ export default function GroupRoom() {
   const [group, setGroup] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(Date.now());
+  const [smartMeetingPoint, setSmartMeetingPoint] = useState(null);
+  const [meetingLookup, setMeetingLookup] = useState(false);
+  const [copyState, setCopyState] = useState('');
   const [notificationPermission, setNotificationPermission] = useState(
     typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
   );
   const previousMemberCount = useRef(null);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -105,20 +132,79 @@ export default function GroupRoom() {
     };
   }, [groupId, userId]);
 
+  const rawMeetingPoint = useMemo(() => suggestedMeetingPoint(group), [group]);
+
+  useEffect(() => {
+    if (!rawMeetingPoint) {
+      setSmartMeetingPoint(null);
+      return;
+    }
+
+    let alive = true;
+    setMeetingLookup(true);
+
+    resolveMeetingPlace(rawMeetingPoint.lat, rawMeetingPoint.lng)
+      .then(place => {
+        if (!alive) return;
+        setSmartMeetingPoint({
+          ...rawMeetingPoint,
+          ...place
+        });
+      })
+      .catch(() => {
+        if (alive) setSmartMeetingPoint(rawMeetingPoint);
+      })
+      .finally(() => {
+        if (alive) setMeetingLookup(false);
+      });
+
+    return () => { alive = false; };
+  }, [rawMeetingPoint?.lat, rawMeetingPoint?.lng]);
+
   async function enableNotifications() {
     if (!('Notification' in window)) return;
     const permission = await Notification.requestPermission();
     setNotificationPermission(permission);
   }
 
-  const meetingPoint = suggestedMeetingPoint(group);
+  async function copyMeetingPoint() {
+    if (!smartMeetingPoint) return;
+    const value = smartMeetingPoint.fullLabel || smartMeetingPoint.label;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyState('Copied');
+      window.setTimeout(() => setCopyState(''), 1600);
+    } catch (_) {
+      setCopyState('Copy unavailable');
+    }
+  }
 
-  return <div className="page-container group-room-page">
+  const members = group?.members || [];
+  const readyCount = members.filter(member => member.ready).length;
+  const countdown = countdownLabel(group?.departureTime, now);
+  const departureDifference = group?.departureTime
+    ? new Date(group.departureTime).getTime() - now
+    : Infinity;
+  const tripMode = members.length > 1 && (
+    group?.status === 'READY'
+    || departureDifference <= 60 * 60 * 1000
+  );
+
+  const meetingPoint = smartMeetingPoint || rawMeetingPoint;
+  const osmMeetingUrl = meetingPoint
+    ? `https://www.openstreetmap.org/?mlat=${meetingPoint.lat}&mlon=${meetingPoint.lng}#map=18/${meetingPoint.lat}/${meetingPoint.lng}`
+    : null;
+
+  return <div className={`page-container group-room-page ${tripMode ? 'trip-mode-active' : ''}`}>
     <div className="group-room-header">
       <div>
         <p className="eyebrow">YOUR SHARED RIDE</p>
-        <h1 className="page-title">Group Room</h1>
-        <p className="page-subtitle">See who’s travelling with you, get ready together and coordinate the ride.</p>
+        <h1 className="page-title">{tripMode ? 'Trip Mode' : 'Group Room'}</h1>
+        <p className="page-subtitle">
+          {tripMode
+            ? 'Your group is coming together. Keep the meeting point, readiness and chat in one place.'
+            : 'See who’s travelling with you, get ready together and coordinate the ride.'}
+        </p>
       </div>
       <div className="group-room-actions">
         {notificationPermission !== 'unsupported' && notificationPermission !== 'granted' &&
@@ -134,10 +220,21 @@ export default function GroupRoom() {
         <h2>Couldn’t open this group.</h2>
         <p className="form-error">{error}</p>
         <Link to="/my-trips" className="btn btn-primary">Back to My trips</Link>
-      </div> :
+      </div> : <>
+      {tripMode && <section className="trip-mode-banner">
+        <div>
+          <p className="eyebrow">LIVE TRIP MODE</p>
+          <h2>{countdown}</h2>
+          <p>{readyCount}/{members.length} passengers ready · {group.destinationLabel}</p>
+        </div>
+        <div className="trip-mode-progress" aria-label={`${readyCount} of ${members.length} passengers ready`}>
+          {members.map(member => <span key={member.id || member.userId} className={member.ready ? 'ready' : ''} title={member.userName} />)}
+        </div>
+      </section>}
+
       <div className="group-room-layout">
         <section className="group-room-map-preview">
-          <p className="eyebrow">LIVE GROUP MAP</p>
+          <p className="eyebrow">{tripMode ? 'TRIP MAP' : 'LIVE GROUP MAP'}</p>
           <h2>{group.destinationLabel}</h2>
 
           {(group.routeDistanceKm || group.routeDurationMinutes) && <div className="group-route-stats">
@@ -161,18 +258,23 @@ export default function GroupRoom() {
                 <p>New trips created with the map picker show passenger pickups and the road route here.</p>
               </div>}
 
-          {meetingPoint && <div className="meeting-suggestion">
+          {meetingPoint && <div className="meeting-suggestion smart-meeting-suggestion">
             <span className="meeting-marker">M</span>
-            <div>
-              <strong>Suggested meeting point</strong>
-              <p>FLUX picked a point near the center of the group’s pickups and keeps it on the shared route when route data is available.</p>
+            <div className="meeting-copy">
+              <strong>{meetingLookup ? 'Finding a useful meeting place…' : meetingPoint.label}</strong>
+              <p>{meetingPoint.fullLabel || 'Near the center of the group’s pickups and kept on the shared route when route data is available.'}</p>
+              <div className="meeting-actions">
+                <button type="button" className="text-link" onClick={copyMeetingPoint}>{copyState || 'Copy place'}</button>
+                {osmMeetingUrl && <a className="text-link" href={osmMeetingUrl} target="_blank" rel="noreferrer">Open map ↗</a>}
+              </div>
             </div>
           </div>}
 
-          <p>Pickup markers and the suggested meeting point are visible only to members of this shared group.</p>
+          <p>Pickup markers and the suggested meeting place are visible only to members of this shared group.</p>
         </section>
 
         <PoolCard pool={group} onPoolChange={setGroup} />
-      </div>}
+      </div>
+      </>}
   </div>;
 }
