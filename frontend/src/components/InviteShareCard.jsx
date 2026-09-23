@@ -33,7 +33,7 @@ export default function InviteShareCard({ groupId, destination, departureTime, o
   const [qrError, setQrError] = useState('');
 
   const inviteUrl = useMemo(
-    () => \`\${window.location.origin}/invite/\${groupId}\`,
+    () => `${window.location.origin}/invite/${groupId}`,
     [groupId]
   );
 
@@ -71,7 +71,7 @@ export default function InviteShareCard({ groupId, destination, departureTime, o
     try {
       await navigator.share({
         title: 'Join my FLUX RIDE',
-        text: \`Join my shared ride to \${destination || 'our destination'}.\`,
+        text: `Join my shared ride to ${destination || 'our destination'}.`,
         url: inviteUrl
       });
     } catch (_) {
