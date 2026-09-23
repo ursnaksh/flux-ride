@@ -6,6 +6,7 @@ import MyRides from './pages/MyRides.jsx';
 import Login from './pages/Login.jsx';
 import GroupRoom from './pages/GroupRoom.jsx';
 import InviteGroup from './pages/InviteGroup.jsx';
+import AmbientGlow from './components/AmbientGlow.jsx';
 
 function RequireUser() {
   const id = Number(localStorage.getItem('flux_user_id'));
@@ -19,9 +20,11 @@ function RequireUser() {
 }
 
 export default function App() {
+  const location = useLocation();
   return <div className="app-shell">
+    <AmbientGlow />
     <Navbar />
-    <main className="app-main" id="main-content">
+    <main key={location.pathname + location.search} className="app-main" id="main-content">
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<RequireUser />}>
