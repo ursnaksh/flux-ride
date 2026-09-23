@@ -37,6 +37,16 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </main>
-    <footer className="app-footer"><strong>FLUX RIDE</strong><span>Find your people. Plan your ride.</span></footer>
+    <footer className="app-footer flux-footer">
+      <div className="footer-brand">
+        <span className="footer-logo-dot" aria-hidden="true"></span>
+        <strong>FLUX RIDE</strong>
+        <span>Shared routes. Better rides.</span>
+      </div>
+      <div className="team-flux-credit">
+        <span className="team-flux-spark" aria-hidden="true">✦</span>
+        Designed &amp; built by <strong>Team FLUX</strong>
+      </div>
+    </footer>
   </div>;
 }
