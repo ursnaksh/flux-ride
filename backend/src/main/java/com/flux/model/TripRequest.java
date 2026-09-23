@@ -29,6 +29,11 @@ public class TripRequest {
     @Column(name = "drop_location", nullable = false)
     private String drop;
 
+    private Double pickupLatitude;
+    private Double pickupLongitude;
+    private Double dropLatitude;
+    private Double dropLongitude;
+
     @Column(nullable = false)
     private Double distanceKm;
 
@@ -52,87 +57,38 @@ public class TripRequest {
         CANCELLED
     }
 
-    public TripRequest() {
-    }
+    public TripRequest() {}
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
-
-        if (this.status == null) {
-            this.status = TripRequestStatus.SEARCHING;
-        }
+        if (this.status == null) this.status = TripRequestStatus.SEARCHING;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
-
-    public String getPickup() {
-        return pickup;
-    }
-
-    public void setPickup(String pickup) {
-        this.pickup = pickup;
-    }
-
-    public String getDrop() {
-        return drop;
-    }
-
-    public void setDrop(String drop) {
-        this.drop = drop;
-    }
-
-    public Double getDistanceKm() {
-        return distanceKm;
-    }
-
-    public void setDistanceKm(Double distanceKm) {
-        this.distanceKm = distanceKm;
-    }
-
-    public Double getFare() {
-        return fare;
-    }
-
-    public void setFare(Double fare) {
-        this.fare = fare;
-    }
-
-    public LocalDateTime getDepartureTime() {
-        return departureTime;
-    }
-
-    public void setDepartureTime(LocalDateTime departureTime) {
-        this.departureTime = departureTime;
-    }
-
-    public TripRequestStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(TripRequestStatus status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public String getPickup() { return pickup; }
+    public void setPickup(String pickup) { this.pickup = pickup; }
+    public String getDrop() { return drop; }
+    public void setDrop(String drop) { this.drop = drop; }
+    public Double getPickupLatitude() { return pickupLatitude; }
+    public void setPickupLatitude(Double value) { pickupLatitude = value; }
+    public Double getPickupLongitude() { return pickupLongitude; }
+    public void setPickupLongitude(Double value) { pickupLongitude = value; }
+    public Double getDropLatitude() { return dropLatitude; }
+    public void setDropLatitude(Double value) { dropLatitude = value; }
+    public Double getDropLongitude() { return dropLongitude; }
+    public void setDropLongitude(Double value) { dropLongitude = value; }
+    public Double getDistanceKm() { return distanceKm; }
+    public void setDistanceKm(Double distanceKm) { this.distanceKm = distanceKm; }
+    public Double getFare() { return fare; }
+    public void setFare(Double fare) { this.fare = fare; }
+    public LocalDateTime getDepartureTime() { return departureTime; }
+    public void setDepartureTime(LocalDateTime departureTime) { this.departureTime = departureTime; }
+    public TripRequestStatus getStatus() { return status; }
+    public void setStatus(TripRequestStatus status) { this.status = status; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
