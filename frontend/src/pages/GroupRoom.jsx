@@ -53,14 +53,14 @@ function countdownLabel(departureTime, now) {
   if (difference <= 0) return 'Time to leave';
 
   const totalMinutes = Math.ceil(difference / 60000);
-  if (totalMinutes < 60) return \`Leaving in \${totalMinutes} min\`;
+  if (totalMinutes < 60) return `Leaving in ${totalMinutes} min`;
 
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  if (hours < 24) return \`Leaving in \${hours}h \${minutes}m\`;
+  if (hours < 24) return `Leaving in ${hours}h ${minutes}m`;
 
   const days = Math.floor(hours / 24);
-  return \`Leaving in \${days}d \${hours % 24}h\`;
+  return `Leaving in ${days}d ${hours % 24}h`;
 }
 
 function distanceKm(first, second) {
@@ -108,7 +108,7 @@ export default function GroupRoom() {
 
     async function load() {
       try {
-        const response = await axiosClient.get(\`/api/pools/user/\${userId}\`);
+        const response = await axiosClient.get(`/api/pools/user/${userId}`);
         if (!alive) return;
 
         const found = (response.data || []).find(item => String(item.id) === String(groupId));
@@ -123,7 +123,7 @@ export default function GroupRoom() {
         ) {
           const latestMember = found.members?.[found.members.length - 1];
           new Notification('Someone joined your FLUX RIDE group', {
-            body: latestMember ? \`\${latestMember.userName} joined the trip.\` : 'A new passenger joined your group.'
+            body: latestMember ? `${latestMember.userName} joined the trip.` : 'A new passenger joined your group.'
           });
         }
 
@@ -151,7 +151,7 @@ export default function GroupRoom() {
 
     async function loadLiveLocations() {
       try {
-        const response = await axiosClient.get(\`/api/pools/\${groupId}/live-locations?userId=\${userId}\`);
+        const response = await axiosClient.get(`/api/pools/${groupId}/live-locations?userId=${userId}`);
         if (alive) setLiveLocations(response.data || []);
       } catch (_) {
         if (alive) setLiveLocations([]);
@@ -232,7 +232,7 @@ export default function GroupRoom() {
         lastLiveSentAt.current = nowMs;
 
         try {
-          await axiosClient.post(\`/api/pools/\${groupId}/location/\${userId}\`, {
+          await axiosClient.post(`/api/pools/${groupId}/location/${userId}`, {
             sharing: true,
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
@@ -273,7 +273,7 @@ export default function GroupRoom() {
     lastLiveSentAt.current = 0;
 
     try {
-      await axiosClient.post(\`/api/pools/\${groupId}/location/\${userId}\`, {
+      await axiosClient.post(`/api/pools/${groupId}/location/${userId}`, {
         sharing: false,
         latitude: null,
         longitude: null
@@ -299,11 +299,11 @@ export default function GroupRoom() {
 
   const meetingPoint = smartMeetingPoint || rawMeetingPoint;
   const osmMeetingUrl = meetingPoint
-    ? \`https://www.openstreetmap.org/?mlat=\${meetingPoint.lat}&mlon=\${meetingPoint.lng}#map=18/\${meetingPoint.lat}/\${meetingPoint.lng}\`
+    ? `https://www.openstreetmap.org/?mlat=${meetingPoint.lat}&mlon=${meetingPoint.lng}#map=18/${meetingPoint.lat}/${meetingPoint.lng}`
     : null;
 
   return <>
-    <div className={\`page-container group-room-page \${tripMode ? 'trip-mode-active' : ''}\`}>
+    <div className={`page-container group-room-page ${tripMode ? 'trip-mode-active' : ''}`}>
       <div className="group-room-header">
         <div>
           <p className="eyebrow">YOUR SHARED RIDE</p>
@@ -343,7 +343,7 @@ export default function GroupRoom() {
             <h2>{countdown}</h2>
             <p>{readyCount}/{members.length} passengers ready · {group.destinationLabel}</p>
           </div>
-          <div className="trip-mode-progress" aria-label={\`\${readyCount} of \${members.length} passengers ready\`}>
+          <div className="trip-mode-progress" aria-label={`${readyCount} of ${members.length} passengers ready`}>
             {members.map(member => <span key={member.id || member.userId} className={member.ready ? 'ready' : ''} title={member.userName} />)}
           </div>
         </section>}
@@ -369,7 +369,7 @@ export default function GroupRoom() {
                   destination={{
                     lat: group.destinationLatitude,
                     lng: group.destinationLongitude,
-                    label: \`Destination · \${group.destinationLabel}\`
+                    label: `Destination · ${group.destinationLabel}`
                   }}
                   members={group.members || []}
                   routeGeometry={group.routeGeometry}
@@ -393,7 +393,7 @@ export default function GroupRoom() {
                   <span className="live-avatar-dot"></span>
                   <div>
                     <strong>{Number(item.userId) === userId ? 'You' : item.userName}</strong>
-                    <small>{away != null ? \`\${away < 1 ? Math.round(away * 1000) + ' m' : away.toFixed(1) + ' km'} from meeting point\` : 'sharing live'}</small>
+                    <small>{away != null ? `${away < 1 ? Math.round(away * 1000) + ' m' : away.toFixed(1) + ' km'} from meeting point` : 'sharing live'}</small>
                   </div>
                 </div>;
               })}
