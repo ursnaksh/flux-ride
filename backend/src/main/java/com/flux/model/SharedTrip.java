@@ -39,6 +39,9 @@ public class SharedTrip {
     @Column(nullable = false)
     private String destinationLabel;
 
+    private Double destinationLatitude;
+    private Double destinationLongitude;
+
     /**
      * Planned departure time for this shared trip.
      * New passengers can be matched against this time.
@@ -115,6 +118,22 @@ public class SharedTrip {
 
     public void setDestinationLabel(String destinationLabel) {
         this.destinationLabel = destinationLabel;
+    }
+
+    public Double getDestinationLatitude() {
+        return destinationLatitude;
+    }
+
+    public void setDestinationLatitude(Double destinationLatitude) {
+        this.destinationLatitude = destinationLatitude;
+    }
+
+    public Double getDestinationLongitude() {
+        return destinationLongitude;
+    }
+
+    public void setDestinationLongitude(Double destinationLongitude) {
+        this.destinationLongitude = destinationLongitude;
     }
 
     public LocalDateTime getDepartureTime() {
