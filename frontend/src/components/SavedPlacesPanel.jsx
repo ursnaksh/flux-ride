@@ -77,7 +77,7 @@ export default function SavedPlacesPanel({
         <div className="saved-place-chip-actions">
           <button type="button" onClick={() => onUsePickup(place)}>From</button>
           <button type="button" onClick={() => onUseDestination(place)}>To</button>
-          <button type="button" className="saved-place-remove" onClick={() => remove(place.id)} aria-label={\`Remove \${place.name}\`}>×</button>
+          <button type="button" className="saved-place-remove" onClick={() => remove(place.id)} aria-label={`Remove ${place.name}`}>×</button>
         </div>
       </article>)}
     </div> : <p className="saved-place-empty">Save Home, College, Hostel or Station once — then reuse them in one tap.</p>}
