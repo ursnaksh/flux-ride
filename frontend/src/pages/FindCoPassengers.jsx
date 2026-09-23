@@ -176,6 +176,7 @@ function RequestForm({ useDailyCommute = false, inviteGroupId = null }) {
         onPickupChange={setPickup}
         onDestinationChange={inviteGroupId ? () => {} : setDestination}
         onRouteChange={setRouteInfo}
+        destinationLocked={Boolean(inviteGroupId)}
       />
     </section>
 
