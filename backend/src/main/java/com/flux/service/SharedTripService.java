@@ -244,7 +244,9 @@ public class SharedTripService {
                         sharedTrip,
                         user.getId(),
                         user.getName(),
-                        tripRequest.getPickup()
+                        tripRequest.getPickup(),
+                        tripRequest.getPickupLatitude(),
+                        tripRequest.getPickupLongitude()
                 );
 
         sharedTrip.getMembers().add(member);
@@ -276,11 +278,20 @@ public class SharedTripService {
         SharedTrip group = new SharedTrip();
         group.setDestination(normalize(request.getDrop()));
         group.setDestinationLabel(request.getDrop().trim());
+        group.setDestinationLatitude(request.getDropLatitude());
+        group.setDestinationLongitude(request.getDropLongitude());
         group.setDepartureTime(request.getDepartureTime());
         group.setTotalFare(request.getFare());
         group.setStatus(SharedTrip.SharedTripStatus.FORMING);
         group.setSourceTripRequestId(request.getId());
-        group.getMembers().add(new SharedTripMember(group, user.getId(), user.getName(), request.getPickup()));
+        group.getMembers().add(new SharedTripMember(
+                group,
+                user.getId(),
+                user.getName(),
+                request.getPickup(),
+                request.getPickupLatitude(),
+                request.getPickupLongitude()
+        ));
         return sharedTripRepository.save(group);
     }
 
