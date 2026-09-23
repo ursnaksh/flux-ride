@@ -95,6 +95,44 @@ function reverseGeocode(lat, lng) {
   });
 }
 
+export function resolveMeetingPlace(lat, lng) {
+  return queueGeocoder(async () => {
+    const url = `${GEOCODER_URL}/reverse?format=jsonv2&zoom=18&addressdetails=1&namedetails=1&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
+    const response = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new Error('Could not name the meeting point.');
+    const data = await response.json();
+    const address = data.address || {};
+    const primary =
+      data.namedetails?.name
+      || data.name
+      || address.amenity
+      || address.shop
+      || address.public_transport
+      || address.building
+      || address.road
+      || address.neighbourhood
+      || address.suburb
+      || 'Suggested meeting point';
+    const area =
+      address.neighbourhood
+      || address.suburb
+      || address.city_district
+      || address.city
+      || address.town
+      || address.village
+      || '';
+    const label = area && !primary.toLowerCase().includes(area.toLowerCase())
+      ? `${primary}, ${area}`
+      : primary;
+    return {
+      lat: Number(lat),
+      lng: Number(lng),
+      label,
+      fullLabel: data.display_name || label
+    };
+  });
+}
+
 function pinIcon(L, kind) {
   const letter = kind === 'pickup' ? 'P' : kind === 'destination' ? 'D' : 'M';
   return L.divIcon({
