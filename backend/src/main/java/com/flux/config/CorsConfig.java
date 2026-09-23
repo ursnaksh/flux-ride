@@ -1,5 +1,6 @@
 package com.flux.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -27,15 +28,13 @@ import java.util.Arrays;
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
 
-    private static final String[] ALLOWED_ORIGINS = {
-            "http://localhost:5173",
-            "http://localhost:3000"
-    };
+    @Value("${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}")
+    private String[] allowedOrigins;
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins(ALLOWED_ORIGINS)
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)
@@ -45,7 +44,7 @@ public class CorsConfig implements WebMvcConfigurer {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.asList(ALLOWED_ORIGINS));
+        config.setAllowedOrigins(Arrays.asList(allowedOrigins));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));
         config.setAllowCredentials(true);
