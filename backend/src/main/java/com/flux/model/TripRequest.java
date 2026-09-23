@@ -9,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
@@ -33,6 +34,12 @@ public class TripRequest {
     private Double pickupLongitude;
     private Double dropLatitude;
     private Double dropLongitude;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String routeGeometry;
+
+    private Double routeDurationMinutes;
 
     @Column(nullable = false)
     private Double distanceKm;
@@ -81,6 +88,10 @@ public class TripRequest {
     public void setDropLatitude(Double value) { dropLatitude = value; }
     public Double getDropLongitude() { return dropLongitude; }
     public void setDropLongitude(Double value) { dropLongitude = value; }
+    public String getRouteGeometry() { return routeGeometry; }
+    public void setRouteGeometry(String value) { routeGeometry = value; }
+    public Double getRouteDurationMinutes() { return routeDurationMinutes; }
+    public void setRouteDurationMinutes(Double value) { routeDurationMinutes = value; }
     public Double getDistanceKm() { return distanceKm; }
     public void setDistanceKm(Double distanceKm) { this.distanceKm = distanceKm; }
     public Double getFare() { return fare; }
