@@ -31,7 +31,7 @@ export default function MyRides() {
     {loading ? <Loader label="Loading your trips…" /> : error ? <div className="empty-state"><p className="form-error" role="alert">{error}</p><button className="btn btn-ghost" onClick={() => setReload(value => value + 1)}>Try again</button></div>
       : tab === 'requests' ? requests.length ? <div className="ride-list">{requests.map(request => <RideCard key={request.id} ride={request} />)}</div>
       : <div className="empty-state"><h2>Your next trip starts here.</h2><p>No requests yet. Tell us where you’re headed.</p><Link to="/find" className="btn btn-primary">Find Co-Passengers</Link></div>
-      : groups.length ? <div className="pool-grid">{groups.map(group => <PoolCard key={group.id} pool={group} />)}</div>
+      : groups.length ? <div className="pool-grid">{groups.map(group => <div className="group-summary-card" key={group.id}><PoolCard pool={group} /><Link to={`/groups/${group.id}`} className="btn btn-primary btn-block open-group-btn">Open Group Room →</Link></div>)}</div>
       : <div className="empty-state"><h2>No shared trips yet.</h2><p>Find a compatible group and choose Join Group.</p><Link to="/find" className="btn btn-primary">Find Co-Passengers</Link></div>}
   </div>;
 }
