@@ -60,6 +60,10 @@ public class SharedTrip {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    /** Trip request that originally opened this group. */
+    @Column(unique = true)
+    private Long sourceTripRequestId;
+
     @OneToMany(
             mappedBy = "sharedTrip",
             cascade = CascadeType.ALL,
@@ -143,6 +147,14 @@ public class SharedTrip {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getSourceTripRequestId() {
+        return sourceTripRequestId;
+    }
+
+    public void setSourceTripRequestId(Long sourceTripRequestId) {
+        this.sourceTripRequestId = sourceTripRequestId;
     }
 
     public List<SharedTripMember> getMembers() {
