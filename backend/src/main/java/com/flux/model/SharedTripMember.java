@@ -1,5 +1,7 @@
 package com.flux.model;
 
+import java.time.LocalDateTime;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
@@ -28,6 +30,18 @@ public class SharedTripMember {
     private Double pickupLatitude;
     private Double pickupLongitude;
     private Boolean ready = Boolean.FALSE;
+
+    @JsonIgnore
+    private Boolean liveLocationSharing = Boolean.FALSE;
+
+    @JsonIgnore
+    private Double liveLatitude;
+
+    @JsonIgnore
+    private Double liveLongitude;
+
+    @JsonIgnore
+    private LocalDateTime liveLocationUpdatedAt;
 
     public SharedTripMember() {}
 
@@ -68,6 +82,22 @@ public class SharedTripMember {
     public void setPickupLongitude(Double value) { pickupLongitude = value; }
     public boolean isReady() { return Boolean.TRUE.equals(ready); }
     public void setReady(Boolean value) { ready = Boolean.TRUE.equals(value); }
+
+    @JsonIgnore
+    public boolean isLiveLocationSharing() { return Boolean.TRUE.equals(liveLocationSharing); }
+    public void setLiveLocationSharing(Boolean value) { liveLocationSharing = Boolean.TRUE.equals(value); }
+
+    @JsonIgnore
+    public Double getLiveLatitude() { return liveLatitude; }
+    public void setLiveLatitude(Double value) { liveLatitude = value; }
+
+    @JsonIgnore
+    public Double getLiveLongitude() { return liveLongitude; }
+    public void setLiveLongitude(Double value) { liveLongitude = value; }
+
+    @JsonIgnore
+    public LocalDateTime getLiveLocationUpdatedAt() { return liveLocationUpdatedAt; }
+    public void setLiveLocationUpdatedAt(LocalDateTime value) { liveLocationUpdatedAt = value; }
 
     public String getInitials() {
         if (userName == null || userName.isBlank()) return "?";
