@@ -19,7 +19,7 @@ export function savePlace(place) {
   const current = loadSavedPlaces();
   const next = [
     {
-      id: place.id || \`\${Date.now()}-\${Math.random().toString(36).slice(2, 7)}\`,
+      id: place.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name: place.name.trim().slice(0, 30),
       label: place.label,
       lat: Number(place.lat),
