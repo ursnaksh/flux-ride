@@ -1,4 +1,5 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
+import NotificationCenter from './NotificationCenter';
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ export default function Navbar() {
         <NavLink to="/find">Find Co-Passengers</NavLink>
         <NavLink to="/my-trips">My trips</NavLink>
       </nav>}
-      <div className="navbar-right">{signedIn ? <>
+      <div className="navbar-right">{signedIn ? <><NotificationCenter />
         <span className="navbar-user">Hi, {name?.split(' ')[0] || 'there'}</span>
         <button className="btn btn-ghost" onClick={logout}>Log out</button>
       </> : <Link className="btn btn-primary" to="/login">Get started</Link>}</div>
