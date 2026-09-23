@@ -4,7 +4,9 @@ import axiosClient from '../api/axiosClient';
 import Loader from '../components/Loader';
 import PoolCard from '../components/PoolCard';
 import { LocationMapPicker } from '../components/OpenStreetMap';
+import SavedPlacesPanel from '../components/SavedPlacesPanel';
 import { formatDeparture, isFuture, matchPercentage } from '../utils/trips';
+import { loadSavedPlaces } from '../utils/savedPlaces';
 
 const COMMUTE_KEY = 'flux_daily_commute';
 
@@ -41,7 +43,7 @@ function distanceBetweenKm(first, second) {
   return Math.max(0.1, Math.round(km * 10) / 10);
 }
 
-function RequestForm({ useDailyCommute = false }) {
+function RequestForm({ useDailyCommute = false, inviteGroupId = null }) {
   const navigate = useNavigate();
   const savedCommute = useRef(useDailyCommute ? loadDailyCommute() : null);
   const [pickup, setPickup] = useState(savedCommute.current?.pickup || null);
@@ -50,23 +52,73 @@ function RequestForm({ useDailyCommute = false }) {
     savedCommute.current?.departureClock ? nextDepartureFromClock(savedCommute.current.departureClock) : ''
   );
   const [routeInfo, setRouteInfo] = useState(savedCommute.current?.routeInfo || null);
+  const [savedPlaces, setSavedPlaces] = useState(loadSavedPlaces);
   const [saveCommute, setSaveCommute] = useState(Boolean(savedCommute.current));
+  const [inviteSummary, setInviteSummary] = useState(null);
+  const [inviteLoading, setInviteLoading] = useState(Boolean(inviteGroupId));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const pending = useRef(false);
+
+  useEffect(() => {
+    if (!inviteGroupId) return;
+    let active = true;
+
+    axiosClient.get(\`/api/pools/\${inviteGroupId}/invite\`)
+      .then(response => {
+        if (!active) return;
+        const summary = response.data;
+        setInviteSummary(summary);
+
+        if (
+          Number.isFinite(summary.destinationLatitude)
+          && Number.isFinite(summary.destinationLongitude)
+        ) {
+          setDestination({
+            label: summary.destinationLabel,
+            lat: summary.destinationLatitude,
+            lng: summary.destinationLongitude
+          });
+          setRouteInfo(null);
+        }
+
+        if (summary.departureTime && isFuture(summary.departureTime)) {
+          setDepartureTime(String(summary.departureTime).slice(0, 16));
+        }
+      })
+      .catch(err => {
+        if (active) setError(err.message);
+      })
+      .finally(() => {
+        if (active) setInviteLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [inviteGroupId]);
+
   const directDistanceKm = distanceBetweenKm(pickup, destination);
   const distanceKm = routeInfo?.distanceKm || directDistanceKm;
+
+  function useSavedAsPickup(place) {
+    setPickup({ label: place.label, lat: place.lat, lng: place.lng });
+  }
+
+  function useSavedAsDestination(place) {
+    if (inviteGroupId) return;
+    setDestination({ label: place.label, lat: place.lat, lng: place.lng });
+  }
 
   async function submit(event) {
     event.preventDefault();
     if (pending.current) return;
-    if (!pickup || !destination) return setError('Search and select both your pickup and destination on the map.');
+    if (!pickup || !destination) return setError('Choose both your pickup and destination.');
     if (!distanceKm) return setError('Choose two different locations.');
     if (!isFuture(departureTime)) return setError('Choose a departure time in the future.');
 
     pending.current = true;
     setBusy(true);
     setError('');
+
     try {
       const response = await axiosClient.post('/api/rides', {
         userId: Number(localStorage.getItem('flux_user_id')),
@@ -79,7 +131,7 @@ function RequestForm({ useDailyCommute = false }) {
         routeGeometry: routeInfo?.coordinates ? JSON.stringify(routeInfo.coordinates) : null,
         routeDurationMinutes: routeInfo?.durationMinutes || null,
         distanceKm,
-        departureTime: departureTime.length === 16 ? `${departureTime}:00` : departureTime
+        departureTime: departureTime.length === 16 ? \`\${departureTime}:00\` : departureTime
       });
 
       if (saveCommute) {
@@ -92,7 +144,11 @@ function RequestForm({ useDailyCommute = false }) {
         }));
       }
 
-      navigate(`/find?request=${response.data.id}`, { replace: true });
+      if (inviteGroupId) {
+        navigate(\`/invite/\${inviteGroupId}?request=\${response.data.id}\`, { replace: true });
+      } else {
+        navigate(\`/find?request=\${response.data.id}\`, { replace: true });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -101,62 +157,117 @@ function RequestForm({ useDailyCommute = false }) {
     }
   }
 
-  return <div className="find-layout map-find-layout">
-    <section className="card plan-panel map-plan-panel">
-      <p className="eyebrow">01 / YOUR ROUTE</p>
-      <h2>Plan the ride</h2>
-      <p className="quiet-note">Search and select both locations on the map, then choose when you want to leave.</p>
-
-      <div className="route-summary">
-        <div><small>FROM</small><strong>{pickup?.label || 'Choose pickup on map'}</strong></div>
-        <span aria-hidden="true">↓</span>
-        <div><small>TO</small><strong>{destination?.label || 'Choose destination on map'}</strong></div>
+  return <div className="map-booking-shell">
+    <section className="booking-map-stage">
+      <div className="booking-map-head">
+        <div>
+          <p className="eyebrow">LIVE ROUTE</p>
+          <h2>{inviteGroupId ? 'Choose where you’ll join from.' : 'Start with the map.'}</h2>
+        </div>
+        {routeInfo && <div className="booking-map-stats">
+          <span><strong>{routeInfo.distanceKm}</strong> km</span>
+          <span><strong>{routeInfo.durationMinutes}</strong> min</span>
+        </div>}
       </div>
 
-      <form className="form" onSubmit={submit}>
-        <label className="field">
-          <span>Departure date &amp; time</span>
-          <input type="datetime-local" value={departureTime} onChange={event => setDepartureTime(event.target.value)} required disabled={busy} />
-          <small>Use your local journey time.</small>
+      <LocationMapPicker
+        pickup={pickup}
+        destination={destination}
+        onPickupChange={setPickup}
+        onDestinationChange={inviteGroupId ? () => {} : setDestination}
+        onRouteChange={setRouteInfo}
+      />
+    </section>
+
+    <aside className="card booking-sheet">
+      <div className="booking-sheet-grabber" aria-hidden="true"></div>
+
+      {inviteGroupId && <div className="invite-prefill-banner">
+        <span>INVITE #{inviteGroupId}</span>
+        <strong>{inviteLoading ? 'Loading destination…' : inviteSummary?.destinationLabel || 'Invited ride'}</strong>
+        <small>The destination and departure time are locked to this invite. Pick your own pickup.</small>
+      </div>}
+
+      <div className="booking-sheet-head">
+        <p className="eyebrow">PLAN YOUR RIDE</p>
+        <h2>{inviteGroupId ? 'Join from your pickup.' : 'Where are we going?'}</h2>
+        <p>{inviteGroupId
+          ? 'Set your pickup and FLUX will check whether your route fits the invited group.'
+          : 'Set the route, choose when you’re leaving, and FLUX will find people actually moving your way.'}</p>
+      </div>
+
+      <div className="booking-route-summary">
+        <div className={pickup ? 'is-set' : ''}>
+          <span className="booking-route-dot pickup"></span>
+          <div><small>FROM</small><strong>{pickup?.label || 'Choose pickup on the map'}</strong></div>
+        </div>
+        <div className="booking-route-connector"></div>
+        <div className={destination ? 'is-set' : ''}>
+          <span className="booking-route-dot destination"></span>
+          <div><small>TO</small><strong>{destination?.label || 'Choose destination on the map'}</strong></div>
+        </div>
+      </div>
+
+      <SavedPlacesPanel
+        pickup={pickup}
+        destination={destination}
+        savedPlaces={savedPlaces}
+        onPlacesChange={setSavedPlaces}
+        onUsePickup={useSavedAsPickup}
+        onUseDestination={useSavedAsDestination}
+      />
+
+      <form className="form booking-form" onSubmit={submit}>
+        <label className="field booking-time-field">
+          <span>Leaving</span>
+          <input
+            type="datetime-local"
+            value={departureTime}
+            onChange={event => setDepartureTime(event.target.value)}
+            required
+            disabled={busy || Boolean(inviteGroupId)}
+          />
+          {inviteGroupId && <small>Departure comes from the invite.</small>}
         </label>
 
-        <div className="map-distance-card">
-          <span>{routeInfo ? 'Real road route' : 'Distance estimate'}</span>
-          <strong>{distanceKm ? `${distanceKm} km` : 'Select both points'}</strong>
-          <small>{routeInfo
-            ? `About ${routeInfo.durationMinutes} min driving · used for route-aware matching.`
-            : 'Waiting for a drivable road route; direct distance is used only as fallback.'}</small>
+        <div className="booking-route-insight">
+          <div>
+            <span>{routeInfo ? 'ROAD ROUTE' : 'ROUTE'}</span>
+            <strong>{distanceKm ? \`\${distanceKm} km\` : '—'}</strong>
+          </div>
+          <div>
+            <span>DRIVE</span>
+            <strong>{routeInfo ? \`~\${routeInfo.durationMinutes} min\` : '—'}</strong>
+          </div>
+          <div>
+            <span>MATCHING</span>
+            <strong>{routeInfo ? 'Route-aware' : 'Waiting'}</strong>
+          </div>
         </div>
 
-        <label className="commute-save-toggle">
+        {!inviteGroupId && <label className="commute-save-toggle">
           <input
             type="checkbox"
             checked={saveCommute}
             onChange={event => setSaveCommute(event.target.checked)}
           />
-          <span><strong>Save as my daily commute</strong><small>Next time, reuse this route and departure time in one tap.</small></span>
-        </label>
+          <span>
+            <strong>Make this my daily commute</strong>
+            <small>Reuse the route and departure time with one tap next time.</small>
+          </span>
+        </label>}
 
         {error && <p className="form-error" role="alert">{error}</p>}
-        <button className="btn btn-primary btn-block" disabled={busy || !pickup || !destination}>
-          {busy ? 'Saving your request…' : 'Find Co-Passengers →'}
+
+        <button className="btn btn-primary btn-block booking-submit" disabled={busy || !pickup || !destination || inviteLoading}>
+          {busy
+            ? 'Creating your route…'
+            : inviteGroupId
+              ? 'Check this invite →'
+              : 'Find people on my route →'}
         </button>
       </form>
-    </section>
-
-    <section className="map-planner-panel">
-      <div className="section-heading">
-        <div><p className="eyebrow">02 / PICK ON THE MAP</p><h2>Where are you going?</h2></div>
-        <span className="map-live-badge">OPEN MAP</span>
-      </div>
-      <LocationMapPicker
-        pickup={pickup}
-        destination={destination}
-        onPickupChange={setPickup}
-        onDestinationChange={setDestination}
-        onRouteChange={setRouteInfo}
-      />
-    </section>
+    </aside>
   </div>;
 }
 
@@ -320,7 +431,18 @@ export default function FindCoPassengers() {
   const [params] = useSearchParams();
   const requestId = params.get('request');
   const useDailyCommute = params.get('commute') === '1';
-  return <div className="page-container find-page"><div className="page-intro"><p className="eyebrow">GO TOGETHER, ON YOUR TERMS</p><h1 className="page-title">Find Co-Passengers</h1><p className="page-subtitle">Share your plans. Compare your matches. Choose your group.</p></div>
-    {requestId ? <RequestResults key={requestId} requestId={requestId} /> : <RequestForm useDailyCommute={useDailyCommute} />}
+  const inviteGroupId = params.get('invite');
+
+  return <div className={`page-container find-page ${requestId ? '' : 'find-page-map-first'}`}>
+    <div className="page-intro">
+      <p className="eyebrow">{inviteGroupId ? 'RIDE INVITE' : 'FIND YOUR PEOPLE'}</p>
+      <h1 className="page-title">{inviteGroupId ? 'Join the route.' : 'Move with people going your way.'}</h1>
+      <p className="page-subtitle">{inviteGroupId
+        ? 'Choose your pickup. FLUX already knows the invited group’s destination and departure time.'
+        : 'Map your real route, see who overlaps with it, then choose your group.'}</p>
+    </div>
+    {requestId
+      ? <RequestResults key={requestId} requestId={requestId} />
+      : <RequestForm useDailyCommute={useDailyCommute} inviteGroupId={inviteGroupId} />}
   </div>;
 }
