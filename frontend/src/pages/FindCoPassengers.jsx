@@ -6,6 +6,27 @@ import PoolCard from '../components/PoolCard';
 import { LocationMapPicker } from '../components/OpenStreetMap';
 import { formatDeparture, isFuture, matchPercentage } from '../utils/trips';
 
+const COMMUTE_KEY = 'flux_daily_commute';
+
+function nextDepartureFromClock(clock) {
+  if (!clock) return '';
+  const [hours, minutes] = clock.split(':').map(Number);
+  const next = new Date();
+  next.setSeconds(0, 0);
+  next.setHours(hours || 0, minutes || 0, 0, 0);
+  if (next.getTime() <= Date.now() + 5 * 60 * 1000) next.setDate(next.getDate() + 1);
+  const pad = value => String(value).padStart(2, '0');
+  return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}T${pad(next.getHours())}:${pad(next.getMinutes())}`;
+}
+
+function loadDailyCommute() {
+  try {
+    return JSON.parse(localStorage.getItem(COMMUTE_KEY) || 'null');
+  } catch (_) {
+    return null;
+  }
+}
+
 function distanceBetweenKm(first, second) {
   if (!first || !second) return null;
   const toRad = degrees => degrees * Math.PI / 180;
@@ -20,12 +41,16 @@ function distanceBetweenKm(first, second) {
   return Math.max(0.1, Math.round(km * 10) / 10);
 }
 
-function RequestForm() {
+function RequestForm({ useDailyCommute = false }) {
   const navigate = useNavigate();
-  const [pickup, setPickup] = useState(null);
-  const [destination, setDestination] = useState(null);
-  const [departureTime, setDepartureTime] = useState('');
-  const [routeInfo, setRouteInfo] = useState(null);
+  const savedCommute = useRef(useDailyCommute ? loadDailyCommute() : null);
+  const [pickup, setPickup] = useState(savedCommute.current?.pickup || null);
+  const [destination, setDestination] = useState(savedCommute.current?.destination || null);
+  const [departureTime, setDepartureTime] = useState(
+    savedCommute.current?.departureClock ? nextDepartureFromClock(savedCommute.current.departureClock) : ''
+  );
+  const [routeInfo, setRouteInfo] = useState(savedCommute.current?.routeInfo || null);
+  const [saveCommute, setSaveCommute] = useState(Boolean(savedCommute.current));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const pending = useRef(false);
@@ -56,6 +81,17 @@ function RequestForm() {
         distanceKm,
         departureTime: departureTime.length === 16 ? `${departureTime}:00` : departureTime
       });
+
+      if (saveCommute) {
+        localStorage.setItem(COMMUTE_KEY, JSON.stringify({
+          pickup,
+          destination,
+          departureClock: departureTime.slice(11, 16),
+          routeInfo: routeInfo || null,
+          updatedAt: new Date().toISOString()
+        }));
+      }
+
       navigate(`/find?request=${response.data.id}`, { replace: true });
     } catch (err) {
       setError(err.message);
@@ -91,6 +127,15 @@ function RequestForm() {
             ? `About ${routeInfo.durationMinutes} min driving · used for route-aware matching.`
             : 'Waiting for a drivable road route; direct distance is used only as fallback.'}</small>
         </div>
+
+        <label className="commute-save-toggle">
+          <input
+            type="checkbox"
+            checked={saveCommute}
+            onChange={event => setSaveCommute(event.target.checked)}
+          />
+          <span><strong>Save as my daily commute</strong><small>Next time, reuse this route and departure time in one tap.</small></span>
+        </label>
 
         {error && <p className="form-error" role="alert">{error}</p>}
         <button className="btn btn-primary btn-block" disabled={busy || !pickup || !destination}>
@@ -259,7 +304,8 @@ function RequestResults({ requestId }) {
 export default function FindCoPassengers() {
   const [params] = useSearchParams();
   const requestId = params.get('request');
+  const useDailyCommute = params.get('commute') === '1';
   return <div className="page-container find-page"><div className="page-intro"><p className="eyebrow">GO TOGETHER, ON YOUR TERMS</p><h1 className="page-title">Find Co-Passengers</h1><p className="page-subtitle">Share your plans. Compare your matches. Choose your group.</p></div>
-    {requestId ? <RequestResults key={requestId} requestId={requestId} /> : <RequestForm />}
+    {requestId ? <RequestResults key={requestId} requestId={requestId} /> : <RequestForm useDailyCommute={useDailyCommute} />}
   </div>;
 }
