@@ -35,67 +35,140 @@ export default function Home() {
     setCommute(null);
   }
 
-  return <div className="home-page flux-home-v2">
-    <section className="hero ride-hero">
-      <div className="hero-copy">
-        <div className="hero-kicker"><span className="live-pulse"></span> ROUTE-AWARE CO-PASSENGER MATCHING</div>
-        <p className="hero-eyebrow">HEY {name.split(' ')[0].toUpperCase()}</p>
-        <h1 className="hero-title">Your route.<br /><span>Your people.</span></h1>
-        <p className="hero-subtitle">Find people already moving your way. Match by real route overlap, time and detour — then plan the ride together.</p>
+  return <div className="home-page flux-home-next">
+    <section className="next-hero">
+      <div className="next-hero-aurora aurora-one" aria-hidden="true"></div>
+      <div className="next-hero-aurora aurora-two" aria-hidden="true"></div>
+      <div className="next-hero-grain" aria-hidden="true"></div>
 
-        <div className="hero-actions">
-          <Link to="/find" className="btn hero-button">Find my people <span aria-hidden="true">↗</span></Link>
-          <Link to="/my-trips" className="hero-secondary">My active trips <span aria-hidden="true">→</span></Link>
+      <div className="next-hero-copy">
+        <div className="next-status-pill"><span></span> Route matching is live</div>
+        <p className="hero-eyebrow">HEY {name.split(' ')[0].toUpperCase()}</p>
+        <h1 className="next-hero-title">
+          Stop looking for a ride.<br />
+          <span>Find your people.</span>
+        </h1>
+        <p className="next-hero-subtitle">
+          FLUX matches students by real road overlap, timing and pickup detour — then gives the group one place to coordinate everything.
+        </p>
+
+        <div className="next-hero-actions">
+          <Link to="/find" className="btn next-primary-btn">
+            Find people on my route
+            <span className="btn-arrow">↗</span>
+          </Link>
+          <Link to="/my-trips" className="btn next-secondary-btn">
+            Open my trips
+            <span>→</span>
+          </Link>
         </div>
 
-        <div className="hero-proof">
-          <span><strong>Route-aware</strong><small>real road matching</small></span>
-          <span><strong>You choose</strong><small>no forced joining</small></span>
-          <span><strong>Private</strong><small>contact details stay hidden</small></span>
+        <div className="next-proof-row">
+          <div><strong>Real roads</strong><span>not text matching</span></div>
+          <div><strong>Private by default</strong><span>you control sharing</span></div>
+          <div><strong>Built for students</strong><span>fast, social, simple</span></div>
         </div>
       </div>
 
-      <div className="journey-art" aria-hidden="true">
-        <div className="hero-map-grid"></div>
-        <div className="hero-route-glow"></div>
-        <div className="hero-map-card hero-map-card-a">
-          <span className="mini-avatar">NS</span>
-          <div><strong>You</strong><small>VIT Pune</small></div>
+      <div className="next-hero-demo" aria-hidden="true">
+        <div className="demo-phone-shell">
+          <div className="demo-phone-top">
+            <span>FLUX RIDE</span>
+            <i></i>
+          </div>
+          <div className="demo-route-panel">
+            <span className="demo-label">LIVE ROUTE</span>
+            <strong>VIT Pune → Koregaon Park</strong>
+            <div className="demo-route-line">
+              <i className="demo-route-start"></i>
+              <i className="demo-route-flow"></i>
+              <i className="demo-route-end"></i>
+            </div>
+            <div className="demo-route-meta">
+              <span>8.4 km</span>
+              <span>24 min</span>
+              <span>3 seats</span>
+            </div>
+          </div>
+
+          <div className="demo-match-card">
+            <div className="demo-match-score"><strong>92</strong><span>%</span></div>
+            <div>
+              <span>BEST MATCH</span>
+              <strong>Swapnil + 1</strong>
+              <small>84% shared route · +0.6 km detour</small>
+            </div>
+          </div>
+
+          <div className="demo-people-row">
+            <span>NS</span><span>SP</span><span>TS</span>
+            <small>3 people ready to coordinate</small>
+          </div>
         </div>
-        <div className="hero-map-card hero-map-card-b">
-          <span className="mini-avatar accent">SP</span>
-          <div><strong>82% route match</strong><small>+0.8 km detour</small></div>
+
+        <div className="floating-chip floating-chip-one">
+          <span className="chip-pulse"></span>
+          {typeof count === 'number' ? count + ' active shared ' + (count === 1 ? 'trip' : 'trips') : 'Matching live'}
         </div>
-        <div className="hero-destination"><span></span><strong>Destination</strong></div>
-        <div className="hero-route-dot dot-1"></div>
-        <div className="hero-route-dot dot-2"></div>
-        <div className="hero-route-dot dot-3"></div>
-        {typeof count === 'number' && <div className="hero-live-card"><span className="live-pulse"></span><strong>{count}</strong><small>active shared {count === 1 ? 'trip' : 'trips'}</small></div>}
+
+        <div className="floating-chip floating-chip-two">
+          <strong>₹148</strong>
+          <span>estimated savings</span>
+        </div>
       </div>
     </section>
 
-    {commute && <section className="daily-commute-card">
-      <div className="daily-commute-icon" aria-hidden="true">↻</div>
+    {commute && <section className="next-commute-card">
+      <div className="next-commute-icon" aria-hidden="true">↻</div>
       <div className="daily-commute-copy">
         <p className="eyebrow">YOUR DAILY COMMUTE</p>
         <h2>{shortPlace(commute.pickup?.label)} <span>→</span> {shortPlace(commute.destination?.label)}</h2>
         <p>Usual departure · {commute.departureClock || 'Saved time'}</p>
       </div>
       <div className="daily-commute-actions">
-        <Link to="/find?commute=1" className="btn btn-primary">Find today’s match <span>↗</span></Link>
-        <button type="button" className="btn btn-ghost" onClick={clearCommute}>Remove</button>
+        <Link to="/find?commute=1" className="btn next-primary-btn compact">Find today’s people <span>↗</span></Link>
+        <button type="button" className="btn next-secondary-btn compact" onClick={clearCommute}>Remove</button>
       </div>
     </section>}
 
-    <div className="section-heading home-section-heading">
-      <div><p className="eyebrow">BUILT AROUND YOUR JOURNEY</p><h2>From “I need a ride” to “we’re leaving”.</h2></div>
-      <Link to="/my-trips" className="text-link">View my trips →</Link>
-    </div>
+    <section className="next-section-head">
+      <div>
+        <p className="eyebrow">WHY IT FEELS DIFFERENT</p>
+        <h2>Less searching. More moving.</h2>
+      </div>
+      <Link to="/find" className="text-link">Try it now ↗</Link>
+    </section>
 
-    <section className="how-grid" aria-label="How FLUX RIDE works">
-      <article className="how-card"><span className="step-number">01</span><div className="how-icon">⌖</div><h3>Drop your route</h3><p>Pick your start, destination and time. FLUX understands the real road route.</p></article>
-      <article className="how-card"><span className="step-number">02</span><div className="how-icon">≈</div><h3>See why you match</h3><p>Route overlap, pickup detour, timing and seats — visible before you join.</p></article>
-      <article className="how-card"><span className="step-number">03</span><div className="how-icon">↗</div><h3>Move together</h3><p>Meet in the Group Room, get ready, chat and coordinate the actual booking.</p></article>
+    <section className="next-feature-grid">
+      <article className="next-feature-card feature-violet">
+        <div className="feature-card-number">01</div>
+        <div className="feature-card-icon">⌖</div>
+        <h3>Route-first matching</h3>
+        <p>FLUX compares real roads, not just typed location names.</p>
+        <div className="feature-card-metric"><strong>84%</strong><span>shared route</span></div>
+      </article>
+
+      <article className="next-feature-card feature-cyan">
+        <div className="feature-card-number">02</div>
+        <div className="feature-card-icon">≈</div>
+        <h3>Know the trade-off</h3>
+        <p>See route overlap, time difference and pickup detour before joining.</p>
+        <div className="feature-card-metric"><strong>+0.8 km</strong><span>pickup detour</span></div>
+      </article>
+
+      <article className="next-feature-card feature-pink">
+        <div className="feature-card-number">03</div>
+        <div className="feature-card-icon">✦</div>
+        <h3>One group room</h3>
+        <p>Chat, readiness, live location, meeting point and invite links in one place.</p>
+        <div className="feature-card-metric"><strong>1 room</strong><span>everything together</span></div>
+      </article>
+    </section>
+
+    <section className="team-flux-home-credit">
+      <span className="credit-line"></span>
+      <p>Made with intent by <strong>Team FLUX</strong></p>
+      <span className="credit-line"></span>
     </section>
   </div>;
 }
