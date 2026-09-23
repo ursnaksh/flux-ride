@@ -49,6 +49,11 @@ public class TripRequestService {
                 request.getDrop().trim()
         );
 
+        tripRequest.setPickupLatitude(request.getPickupLatitude());
+        tripRequest.setPickupLongitude(request.getPickupLongitude());
+        tripRequest.setDropLatitude(request.getDropLatitude());
+        tripRequest.setDropLongitude(request.getDropLongitude());
+
         tripRequest.setDistanceKm(
                 request.getDistanceKm()
         );
