@@ -4,6 +4,7 @@ import Home from './pages/Home.jsx';
 import FindCoPassengers from './pages/FindCoPassengers.jsx';
 import MyRides from './pages/MyRides.jsx';
 import Login from './pages/Login.jsx';
+import GroupRoom from './pages/GroupRoom.jsx';
 
 function RequireUser() {
   const id = Number(localStorage.getItem('flux_user_id'));
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/find" element={<FindCoPassengers />} />
           <Route path="/my-trips" element={<MyRides />} />
+          <Route path="/groups/:groupId" element={<GroupRoom />} />
           <Route path="/book" element={<Navigate to="/find" replace />} />
           <Route path="/pool" element={<Navigate to="/find" replace />} />
           <Route path="/my-rides" element={<Navigate to="/my-trips" replace />} />
