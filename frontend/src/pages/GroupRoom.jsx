@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import Loader from '../components/Loader';
 import PoolCard from '../components/PoolCard';
+import { GroupMap } from '../components/OpenStreetMap';
 
 export default function GroupRoom() {
   const { groupId } = useParams();
@@ -38,10 +39,16 @@ export default function GroupRoom() {
     {loading ? <Loader label="Opening your group…" /> :
       error ? <div className="empty-state"><h2>Couldn’t open this group.</h2><p className="form-error">{error}</p><Link to="/my-trips" className="btn btn-primary">Back to My trips</Link></div> :
       <div className="group-room-layout">
-        <section className="group-room-map-preview" aria-label="Route map coming next">
-          <div className="map-preview-route"><span className="map-dot map-dot-start"></span><span className="map-route-line"></span><span className="map-dot map-dot-end"></span></div>
-          <p className="eyebrow">ROUTE</p><h2>{group.destinationLabel}</h2>
-          <p>Interactive pickup and destination map is the next UX upgrade.</p>
+        <section className="group-room-map-preview">
+          <p className="eyebrow">LIVE GROUP MAP</p>
+          <h2>{group.destinationLabel}</h2>
+          {Number.isFinite(group.destinationLatitude) && Number.isFinite(group.destinationLongitude)
+            ? <GroupMap
+                destination={{ lat: group.destinationLatitude, lng: group.destinationLongitude, label: `Destination · ${group.destinationLabel}` }}
+                members={group.members || []}
+              />
+            : <div className="map-empty-state"><strong>Map coordinates aren’t available for this older trip.</strong><p>New trips created with the map picker will show every passenger pickup here.</p></div>}
+          <p>Pickup markers are visible only to members of this shared group.</p>
         </section>
         <PoolCard pool={group} />
       </div>}
