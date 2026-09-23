@@ -1173,3 +1173,157 @@ h3 { line-height: 1.4; overflow-wrap: anywhere; }
   .ready-panel .btn { width:100%; }
   .group-room-actions { justify-content:flex-start; }
 }
+
+/* Daily commute, live alerts and trip mode */
+.daily-commute-card {
+  margin-top:24px;
+  background:linear-gradient(135deg,#eff8f3,#f6f4ff);
+  border:1px solid #dce6df;
+  border-radius:18px;
+  padding:20px 22px;
+  display:flex;
+  justify-content:space-between;
+  gap:18px;
+  align-items:center;
+}
+.daily-commute-copy h2 {
+  margin-top:6px;
+  font-size:20px;
+  line-height:1.35;
+}
+.daily-commute-copy h2 span { color:var(--indigo); padding:0 4px; }
+.daily-commute-copy > p:last-child { color:#6d7481; font-size:12px; margin-top:7px; }
+.daily-commute-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.commute-save-toggle {
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  padding:12px;
+  border:1px solid #dfe4e8;
+  border-radius:11px;
+  background:#f8fbf9;
+  cursor:pointer;
+}
+.commute-save-toggle input { margin-top:2px; }
+.commute-save-toggle span { display:grid; gap:3px; }
+.commute-save-toggle strong { font-size:12px; color:#34463d; }
+.commute-save-toggle small { color:#737b83; font-size:10px; line-height:1.5; }
+
+.notification-center { position:relative; }
+.notification-bell {
+  width:38px;
+  height:38px;
+  border:1px solid #dde2e8;
+  background:#fff;
+  border-radius:10px;
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+  position:relative;
+  color:#41495a;
+  font-size:18px;
+}
+.notification-bell:hover { background:#f6f7fa; }
+.notification-bell strong {
+  position:absolute;
+  top:-6px;
+  right:-6px;
+  min-width:18px;
+  height:18px;
+  padding:0 4px;
+  border-radius:999px;
+  background:#d74d3f;
+  color:#fff;
+  border:2px solid #fff;
+  display:grid;
+  place-items:center;
+  font-size:9px;
+}
+.notification-popover {
+  position:absolute;
+  right:0;
+  top:46px;
+  z-index:1500;
+  width:min(380px,calc(100vw - 28px));
+  background:#fff;
+  border:1px solid #dde2e9;
+  border-radius:16px;
+  box-shadow:0 18px 45px #20244224;
+  padding:16px;
+}
+.notification-popover-head {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+  margin-bottom:12px;
+}
+.notification-popover-head h3 { font-size:16px; margin-top:3px; }
+.notification-close {
+  width:28px;height:28px;border:0;border-radius:50%;background:#f2f3f6;cursor:pointer;font-size:18px;color:#646b78;
+}
+.notification-list { display:grid; gap:8px; margin-top:10px; max-height:320px; overflow:auto; }
+.notification-item {
+  display:flex;
+  gap:10px;
+  padding:11px;
+  border:1px solid #e8ebef;
+  border-radius:11px;
+  color:inherit;
+  text-decoration:none;
+}
+.notification-item:hover { background:#f8faf9; border-color:#d7e2da; }
+.notification-score {
+  flex:0 0 46px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  background:#e7f3eb;
+  color:#22623f;
+  font-size:11px;
+  font-weight:800;
+}
+.notification-item strong { display:block; font-size:12px; line-height:1.4; }
+.notification-item p { color:#717886; font-size:10px; line-height:1.5; margin-top:3px; }
+.notification-empty { font-size:11px; line-height:1.6; color:#727987; padding:8px 2px; }
+.notification-clear { border:0;background:none;cursor:pointer;margin-top:12px;padding:0; }
+
+.trip-mode-active { max-width:1220px; }
+.trip-mode-banner {
+  margin-bottom:20px;
+  border-radius:18px;
+  background:linear-gradient(135deg,#202442,#2b3158);
+  color:#fff;
+  padding:20px 22px;
+  display:flex;
+  justify-content:space-between;
+  gap:18px;
+  align-items:center;
+  box-shadow:0 14px 36px #20244224;
+}
+.trip-mode-banner .eyebrow { color:#b9ddce; margin-bottom:5px; }
+.trip-mode-banner h2 { font-size:28px; letter-spacing:-.025em; }
+.trip-mode-banner p:last-child { color:#d6d9e6; font-size:12px; margin-top:5px; }
+.trip-mode-progress { display:flex; gap:7px; }
+.trip-mode-progress span {
+  width:15px;height:15px;border-radius:50%;
+  background:#ffffff28;
+  border:1px solid #ffffff55;
+}
+.trip-mode-progress span.ready { background:#b9ddce; border-color:#d9f2e6; }
+
+.smart-meeting-suggestion { align-items:flex-start; }
+.meeting-copy { min-width:0; flex:1; }
+.meeting-copy > strong { font-size:13px; color:#4e3c1e; }
+.meeting-copy > p { overflow-wrap:anywhere; }
+.meeting-actions { display:flex; gap:16px; margin-top:8px; flex-wrap:wrap; }
+.meeting-actions .text-link { border:0;background:none;padding:0;cursor:pointer;font-size:11px; }
+
+@media (max-width:700px) {
+  .daily-commute-card { align-items:stretch; flex-direction:column; }
+  .daily-commute-actions { justify-content:flex-start; }
+  .daily-commute-actions .btn { flex:1; }
+  .notification-popover { position:fixed; top:72px; right:14px; left:14px; width:auto; }
+  .trip-mode-banner { align-items:flex-start; flex-direction:column; }
+}
