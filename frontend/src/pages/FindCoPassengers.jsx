@@ -64,7 +64,7 @@ function RequestForm({ useDailyCommute = false, inviteGroupId = null }) {
     if (!inviteGroupId) return;
     let active = true;
 
-    axiosClient.get(\`/api/pools/\${inviteGroupId}/invite\`)
+    axiosClient.get(`/api/pools/${inviteGroupId}/invite`)
       .then(response => {
         if (!active) return;
         const summary = response.data;
@@ -131,7 +131,7 @@ function RequestForm({ useDailyCommute = false, inviteGroupId = null }) {
         routeGeometry: routeInfo?.coordinates ? JSON.stringify(routeInfo.coordinates) : null,
         routeDurationMinutes: routeInfo?.durationMinutes || null,
         distanceKm,
-        departureTime: departureTime.length === 16 ? \`\${departureTime}:00\` : departureTime
+        departureTime: departureTime.length === 16 ? `${departureTime}:00` : departureTime
       });
 
       if (saveCommute) {
@@ -145,9 +145,9 @@ function RequestForm({ useDailyCommute = false, inviteGroupId = null }) {
       }
 
       if (inviteGroupId) {
-        navigate(\`/invite/\${inviteGroupId}?request=\${response.data.id}\`, { replace: true });
+        navigate(`/invite/${inviteGroupId}?request=${response.data.id}`, { replace: true });
       } else {
-        navigate(\`/find?request=\${response.data.id}\`, { replace: true });
+        navigate(`/find?request=${response.data.id}`, { replace: true });
       }
     } catch (err) {
       setError(err.message);
@@ -233,11 +233,11 @@ function RequestForm({ useDailyCommute = false, inviteGroupId = null }) {
         <div className="booking-route-insight">
           <div>
             <span>{routeInfo ? 'ROAD ROUTE' : 'ROUTE'}</span>
-            <strong>{distanceKm ? \`\${distanceKm} km\` : '—'}</strong>
+            <strong>{distanceKm ? `${distanceKm} km` : '—'}</strong>
           </div>
           <div>
             <span>DRIVE</span>
-            <strong>{routeInfo ? \`~\${routeInfo.durationMinutes} min\` : '—'}</strong>
+            <strong>{routeInfo ? `~${routeInfo.durationMinutes} min` : '—'}</strong>
           </div>
           <div>
             <span>MATCHING</span>
