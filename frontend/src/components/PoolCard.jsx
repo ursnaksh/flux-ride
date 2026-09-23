@@ -1,58 +1,17 @@
-const AVATAR_COLORS = ['#4F46E5', '#14B8A6', '#F59E0B', '#EF4444'];
+import { formatDeparture, money } from '../utils/trips';
 
-function Avatar({ initials, index }) {
-  return (
-    <div
-      className="avatar"
-      style={{ backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] }}
-      title={initials}
-    >
-      {initials}
-    </div>
-  );
-}
-
-export default function PoolCard({ pool, onJoin, onView, joinDisabled }) {
-  const farePerMember = pool.members.length > 0 ? pool.totalFare / pool.members.length : pool.totalFare;
-  const seatsLeft = 4 - pool.members.length;
-
-  return (
-    <div className="card pool-card">
-      <div className="card-row">
-        <div>
-          <p className="card-eyebrow">Shared route</p>
-          <h3 className="card-title">To {pool.destinationLabel}</h3>
-        </div>
-        <span className={`status-badge status-${pool.status.toLowerCase()}`}>{pool.status}</span>
-      </div>
-
-      <div className="avatar-stack">
-        {pool.members.map((m, i) => (
-          <Avatar key={m.id} initials={m.initials} index={i} />
-        ))}
-        {Array.from({ length: Math.max(seatsLeft, 0) }).map((_, i) => (
-          <div className="avatar avatar-empty" key={`empty-${i}`}>+</div>
-        ))}
-      </div>
-
-      <div className="card-meta">
-        <span>{pool.members.length}/4 riders</span>
-        <span className="dot">•</span>
-        <span>₹{farePerMember.toFixed(2)} / person</span>
-        <span className="dot">•</span>
-        <span>Driver: {pool.driverName}</span>
-      </div>
-
-      <div className="card-actions">
-        {onView && (
-          <button className="btn btn-ghost" onClick={() => onView(pool)}>View route</button>
-        )}
-        {onJoin && (
-          <button className="btn btn-primary" disabled={joinDisabled || seatsLeft <= 0} onClick={() => onJoin(pool)}>
-            {seatsLeft <= 0 ? 'Full' : 'Join pool'}
-          </button>
-        )}
-      </div>
-    </div>
-  );
+export default function PoolCard({ pool }) {
+  const members = pool.members || [];
+  const perMember = members.length ? pool.totalFare / members.length : pool.totalFare;
+  return <article className="card shared-card">
+    <div className="card-row"><div><p className="eyebrow">SHARED TRIP #{pool.id}</p><h3>To {pool.destinationLabel}</h3></div>
+      <span className={`status-badge status-${pool.status?.toLowerCase()}`}>{pool.status?.replaceAll('_', ' ')}</span></div>
+    <p className="departure-line">{formatDeparture(pool.departureTime)} <span>· {members.length}/4 passengers</span></p>
+    <ul className="member-list">{members.map((member, index) => <li key={member.id || member.userId}>
+      <span className={`member-avatar avatar-tone-${index % 3}`} aria-hidden="true">{member.initials || member.userName?.slice(0, 1)}</span>
+      <div><strong>{member.userName}</strong><span>{member.pickup}</span></div>
+    </li>)}</ul>
+    <div className="fare-row"><span>Estimated share per person</span><strong>{money(perMember)}</strong></div>
+    <p className="quiet-note">Coordinate with your group, then book your Uber, Ola, cab or auto separately. Joining here does not book transport. Actual fares may vary.</p>
+  </article>;
 }

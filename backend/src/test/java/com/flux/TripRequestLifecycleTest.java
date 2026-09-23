@@ -185,6 +185,92 @@ class TripRequestLifecycleTest {
         assertThat(requests.count()).isZero();
     }
 
+    @Test
+    void createGroupFromRequestThenAnotherPassengerFindsAndJoinsIt() {
+        long creatorRequest = createRequest();
+        // Creating must not silently join an existing compatible group.
+        group("airport", departure, "VIT Main Road", 1);
+        long before = groups.count();
+        ResponseEntity<JsonNode> response = createGroup(creatorRequest);
+        assertThat(response.getStatusCode().value()).isEqualTo(201);
+        long groupId = response.getBody().path("data").path("id").asLong();
+        SharedTrip created = groups.findById(groupId).orElseThrow();
+        assertThat(groups.count()).isEqualTo(before + 1);
+        assertThat(created.getDestination()).isEqualTo("airport");
+        assertThat(created.getDepartureTime()).isEqualTo(departure);
+        assertThat(created.getTotalFare()).isEqualTo(159.0);
+        assertThat(created.getStatus()).isEqualTo(SharedTrip.SharedTripStatus.FORMING);
+        assertThat(created.getMembers()).hasSize(1);
+        assertThat(created.getMembers().get(0).getUserId()).isEqualTo(passenger.getId());
+        assertThat(requests.findById(creatorRequest).orElseThrow().getStatus())
+                .isEqualTo(TripRequest.TripRequestStatus.MATCHED);
+        assertThat(createGroup(creatorRequest).getStatusCode().value()).isEqualTo(400);
+        assertThat(groups.count()).isEqualTo(before + 1);
+
+        passenger = users.save(new User("Nagesh", "9000000003"));
+        long joiningRequest = createRequest();
+        JsonNode matches = http.getForObject("/api/pools/matches/" + joiningRequest, JsonNode.class).path("data");
+        boolean found = false;
+        for (JsonNode match : matches) {
+            if (match.path("sharedTripId").asLong() == groupId) found = true;
+        }
+        assertThat(found).isTrue();
+        assertThat(join(groupId, joiningRequest).getStatusCode().value()).isEqualTo(200);
+        assertThat(groups.findById(groupId).orElseThrow().getMembers()).hasSize(2);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = TripRequest.TripRequestStatus.class, names = {"MATCHED", "CANCELLED", "COMPLETED"})
+    void nonSearchingRequestCannotCreateGroup(TripRequest.TripRequestStatus status) {
+        long id = createRequest();
+        TripRequest request = requests.findById(id).orElseThrow();
+        request.setStatus(status);
+        requests.save(request);
+        assertThat(createGroup(id).getStatusCode().value()).isEqualTo(400);
+        assertThat(groups.count()).isZero();
+        assertThat(requests.findById(id).orElseThrow().getStatus()).isEqualTo(status);
+    }
+
+    @Test
+    void expiredOrMissingRequestCannotCreateGroup() {
+        long id = createRequest();
+        TripRequest request = requests.findById(id).orElseThrow();
+        request.setDepartureTime(LocalDateTime.now().minusMinutes(1));
+        requests.save(request);
+        assertThat(createGroup(id).getStatusCode().value()).isEqualTo(400);
+        assertThat(createGroup(Long.MAX_VALUE).getStatusCode().value()).isEqualTo(404);
+        assertSearching(id);
+        assertThat(groups.count()).isZero();
+    }
+
+    @Test
+    void failedRequestSaveRollsBackNewGroupAndCreatorMembership() {
+        long id = createRequest();
+        doThrow(new IllegalStateException("Simulated status persistence failure"))
+                .when(requests).save(any(TripRequest.class));
+        try {
+            assertThat(createGroup(id).getStatusCode().value()).isEqualTo(500);
+        } finally {
+            reset(requests);
+        }
+        assertSearching(id);
+        assertThat(groups.count()).isZero();
+    }
+
+    @Test
+    void simultaneousCreationUsesRequestOnlyOnce() {
+        long id = createRequest();
+        var first = java.util.concurrent.CompletableFuture.supplyAsync(() -> createGroup(id).getStatusCode().value());
+        var second = java.util.concurrent.CompletableFuture.supplyAsync(() -> createGroup(id).getStatusCode().value());
+        assertThat(java.util.List.of(first.join(), second.join())).containsExactlyInAnyOrder(201, 400);
+        assertThat(groups.count()).isEqualTo(1);
+        assertThat(requests.findById(id).orElseThrow().getStatus()).isEqualTo(TripRequest.TripRequestStatus.MATCHED);
+    }
+
+    private ResponseEntity<JsonNode> createGroup(long requestId) {
+        return http.postForEntity("/api/pools/from-request/" + requestId, null, JsonNode.class);
+    }
+
     private long createRequest() {
         ResponseEntity<JsonNode> response = http.postForEntity("/api/rides", Map.of(
                 "userId", passenger.getId(), "pickup", " VIT Main Road ",

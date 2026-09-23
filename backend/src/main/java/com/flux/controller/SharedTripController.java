@@ -99,13 +99,10 @@ public class SharedTripController {
             @PathVariable Long sharedTripId,
             @PathVariable Long tripRequestId) {
 
-        TripRequest tripRequest =
-                tripRequestService.getById(tripRequestId);
-
         SharedTrip sharedTrip =
                 sharedTripService.joinSharedTrip(
                         sharedTripId,
-                        tripRequest
+                        tripRequestId
                 );
 
         return ResponseEntity.ok(
@@ -113,6 +110,15 @@ public class SharedTripController {
                         "Joined shared trip successfully",
                         sharedTrip
                 )
+        );
+    }
+
+    @PostMapping("/from-request/{tripRequestId}")
+    public ResponseEntity<ApiResponse<SharedTrip>> createFromRequest(
+            @PathVariable Long tripRequestId) {
+        SharedTrip group = sharedTripService.createFromRequest(tripRequestId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                ApiResponse.success("Shared trip created successfully", group)
         );
     }
 

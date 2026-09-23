@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: flux-ride-backend
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: feature/find-co-passengers
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: SERVER_PORT
+        value: "10000"
+      - key: SERVER_ADDRESS
+        value: "0.0.0.0"
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+        value: "3"

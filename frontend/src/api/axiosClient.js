@@ -3,7 +3,8 @@ import axios from 'axios';
 // Direct calls to the Spring Boot backend - CORS is handled there (CorsConfig.java),
 // so we do NOT need a Vite proxy or credentials here.
 const axiosClient = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  timeout: 15000,
   withCredentials: false,
   headers: {
     'Content-Type': 'application/json'
@@ -21,6 +22,10 @@ axiosClient.interceptors.response.use(
     if (error.response) {
       // Server responded with a non-2xx status - use our API's own message if present.
       message = error.response.data?.message || `Request failed (${error.response.status})`;
+      const details = error.response.data?.data;
+      if (error.response.status === 400 && details && typeof details === 'object' && !Array.isArray(details)) {
+        message = Object.values(details).join(' ');
+      }
     } else if (error.request) {
       // Request was made but no response received - almost always means the
       // backend isn't running on port 8080.
