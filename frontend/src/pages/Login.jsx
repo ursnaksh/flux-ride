@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 
 export default function Login() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [mode, setMode] = useState('register');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -23,7 +24,8 @@ export default function Login() {
       localStorage.setItem('flux_user_name', response.data.name);
       localStorage.setItem('flux_role', 'USER');
       localStorage.removeItem('flux_driver_id');
-      navigate('/');
+      const next = params.get('next');
+      navigate(next && next.startsWith('/') ? next : '/');
     } catch (err) { setError(err.message); }
     finally { pending.current = false; setLoading(false); }
   }
