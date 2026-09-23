@@ -2,9 +2,26 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 
+const COMMUTE_KEY = 'flux_daily_commute';
+
+function loadCommute() {
+  try {
+    return JSON.parse(localStorage.getItem(COMMUTE_KEY) || 'null');
+  } catch (_) {
+    return null;
+  }
+}
+
+function shortPlace(label) {
+  if (!label) return 'Saved place';
+  return label.split(',').slice(0, 2).join(',').trim();
+}
+
 export default function Home() {
   const [count, setCount] = useState(null);
+  const [commute, setCommute] = useState(loadCommute);
   const name = localStorage.getItem('flux_user_name') || 'there';
+
   useEffect(() => {
     const controller = new AbortController();
     axiosClient.get('/api/pools/active/count', { signal: controller.signal })
@@ -12,6 +29,12 @@ export default function Home() {
       .catch(() => {});
     return () => controller.abort();
   }, []);
+
+  function clearCommute() {
+    localStorage.removeItem(COMMUTE_KEY);
+    setCommute(null);
+  }
+
   return <div className="home-page">
     <section className="hero ride-hero">
       <div><p className="hero-eyebrow">WELCOME BACK, {name.split(' ')[0].toUpperCase()}</p>
@@ -22,6 +45,19 @@ export default function Home() {
       </div>
       <div className="journey-art" aria-hidden="true"><div className="journey-stop">01 <span>Your pickup</span></div><div className="journey-track"><span>↗</span></div><div className="journey-stop">02 <span>A shared destination</span></div><div className="journey-caption">A little planning.<br />A better journey.</div></div>
     </section>
+
+    {commute && <section className="daily-commute-card">
+      <div className="daily-commute-copy">
+        <p className="eyebrow">YOUR DAILY COMMUTE</p>
+        <h2>{shortPlace(commute.pickup?.label)} <span>→</span> {shortPlace(commute.destination?.label)}</h2>
+        <p>Usual departure · {commute.departureClock || 'Saved time'}</p>
+      </div>
+      <div className="daily-commute-actions">
+        <Link to="/find?commute=1" className="btn btn-primary">Find today’s co-passengers →</Link>
+        <button type="button" className="btn btn-ghost" onClick={clearCommute}>Remove</button>
+      </div>
+    </section>}
+
     <div className="section-heading"><div><p className="eyebrow">HOW IT WORKS</p><h2>Your trip. Your choice.</h2></div><Link to="/my-trips" className="text-link">View my trips →</Link></div>
     <section className="how-grid" aria-label="How FLUX RIDE works">
       {[['01', 'Share your plans', 'Add your pickup, destination and departure time.'], ['02', 'Find your group', 'Compare match scores, reasons and available seats.'], ['03', 'Go together', 'Join the group you choose. Arrange your cab or auto separately.']].map(([step, title, text]) =>
