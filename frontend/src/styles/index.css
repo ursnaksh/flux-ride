@@ -919,3 +919,32 @@ h3 { line-height: 1.4; overflow-wrap: anywhere; }
 .create-group-panel { margin-top: 24px; padding: 24px; background: #f5f8f6; }
 .create-group-panel h3 { font-size: 18px; }
 .create-group-panel .btn { margin-top: 18px; }
+
+/* Dedicated matched group room */
+.group-summary-card { display: flex; flex-direction: column; gap: 10px; }
+.group-summary-card .shared-card { flex: 1; }
+.open-group-btn { border-radius: 12px; }
+.group-room-header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 24px; }
+.group-room-layout { display: grid; grid-template-columns: minmax(260px, .75fr) minmax(0, 1.25fr); gap: 24px; align-items: start; }
+.group-room-map-preview { min-height: 330px; padding: 28px; border-radius: 18px; background: linear-gradient(145deg,#e8eee9,#eef0f6); border: 1px solid #dce1e7; position: sticky; top: 105px; overflow: hidden; }
+.group-room-map-preview h2 { margin-top: 8px; }
+.group-room-map-preview > p:last-child { color: #656b78; font-size: 13px; line-height: 1.7; margin-top: 10px; }
+.map-preview-route { height: 160px; position: relative; margin-bottom: 22px; }
+.map-route-line { position: absolute; left: 31px; top: 34px; width: calc(100% - 68px); height: 80px; border-top: 3px dashed #7773d9; border-radius: 50%; transform: rotate(-8deg); }
+.map-dot { position: absolute; width: 18px; height: 18px; border-radius: 50%; border: 4px solid white; box-shadow: 0 2px 8px #0002; z-index: 1; }
+.map-dot-start { left: 22px; top: 28px; background: var(--teal); }
+.map-dot-end { right: 22px; bottom: 32px; background: var(--indigo); }
+.group-chat { border-top: 1px solid #e5e8ee; margin-top: 22px; padding-top: 22px; }
+.chat-messages { display: flex; flex-direction: column; gap: 9px; max-height: 280px; overflow-y: auto; padding: 12px 0; }
+.chat-message { align-self: flex-start; max-width: 82%; background: #f0f1f4; border-radius: 12px 12px 12px 3px; padding: 9px 12px; display: flex; flex-direction: column; gap: 4px; }
+.chat-message-mine { align-self: flex-end; background: #e9e8ff; border-radius: 12px 12px 3px 12px; }
+.chat-message strong { font-size: 10px; color: #606777; }
+.chat-message span { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.chat-compose { display: flex; gap: 8px; margin-top: 8px; }
+.chat-compose input { flex: 1; min-width: 0; border: 1px solid var(--gray-200); border-radius: 10px; padding: 11px 13px; font-size: 14px; }
+.chat-compose input:focus { outline: none; border-color: var(--indigo); }
+@media (max-width: 760px) {
+  .group-room-header { flex-direction: column; }
+  .group-room-layout { grid-template-columns: 1fr; }
+  .group-room-map-preview { position: static; min-height: 250px; }
+}
