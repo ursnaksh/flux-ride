@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar.jsx';
 import Home from './pages/Home.jsx';
 import FindCoPassengers from './pages/FindCoPassengers.jsx';
@@ -9,8 +9,13 @@ import InviteGroup from './pages/InviteGroup.jsx';
 
 function RequireUser() {
   const id = Number(localStorage.getItem('flux_user_id'));
-  return Number.isSafeInteger(id) && id > 0 && localStorage.getItem('flux_role') === 'USER'
-    ? <Outlet /> : <Navigate to="/login" replace />;
+  const location = useLocation();
+  const signedIn = Number.isSafeInteger(id) && id > 0 && localStorage.getItem('flux_role') === 'USER';
+
+  if (signedIn) return <Outlet />;
+
+  const next = encodeURIComponent(location.pathname + location.search);
+  return <Navigate to={`/login?next=${next}`} replace />;
 }
 
 export default function App() {
