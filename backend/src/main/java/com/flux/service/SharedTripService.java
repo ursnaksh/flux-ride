@@ -397,6 +397,12 @@ public class SharedTripService {
     public List<MatchResult> findMatches(
             TripRequest tripRequest) {
 
+        // Backfill older SEARCHING requests created before automatic discovery
+        // was enabled, so existing users can match without recreating trips.
+        tripRequestRepository
+                .findByStatusOrderByCreatedAtAsc(TripRequest.TripRequestStatus.SEARCHING)
+                .forEach(this::ensureGroupForRequest);
+
         List<SharedTrip> formingTrips =
                 sharedTripRepository
                         .findByStatusOrderByCreatedAtDesc(
