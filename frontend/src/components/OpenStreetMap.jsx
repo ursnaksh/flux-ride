@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { getDrivingRoute } from '../utils/routing';
 
 const DEFAULT_CENTER = [18.5204, 73.8567];
 const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
@@ -95,9 +96,10 @@ function reverseGeocode(lat, lng) {
 }
 
 function pinIcon(L, kind) {
+  const letter = kind === 'pickup' ? 'P' : kind === 'destination' ? 'D' : 'M';
   return L.divIcon({
     className: '',
-    html: `<span class="flux-map-pin flux-map-pin-${kind}"><span>${kind === 'pickup' ? 'P' : 'D'}</span></span>`,
+    html: `<span class="flux-map-pin flux-map-pin-${kind}"><span>${letter}</span></span>`,
     iconSize: [34, 42],
     iconAnchor: [17, 40],
     popupAnchor: [0, -38]
@@ -110,25 +112,6 @@ function fitMap(map, points) {
   } else if (points.length === 1) {
     map.setView(points[0], 15);
   }
-}
-
-function drawReadOnlyLocations(L, map, layer, locations) {
-  layer.clearLayers();
-  const points = [];
-
-  locations.filter(Boolean).forEach((location, index) => {
-    const point = [location.lat, location.lng];
-    points.push(point);
-    const isDestination = index === locations.filter(Boolean).length - 1 && locations.length > 1;
-    L.marker(point, { icon: pinIcon(L, isDestination ? 'destination' : 'pickup') })
-      .bindPopup(location.label || (isDestination ? 'Destination' : 'Pickup'))
-      .addTo(layer);
-  });
-
-  if (points.length > 1) {
-    L.polyline(points, { weight: 4, opacity: 0.72, dashArray: '9 9' }).addTo(layer);
-  }
-  fitMap(map, points);
 }
 
 function SearchBox({ title, value, onSelect, onClear, placeholder }) {
@@ -176,12 +159,21 @@ function SearchBox({ title, value, onSelect, onClear, placeholder }) {
   </div>;
 }
 
-export function LocationMapPicker({ pickup, destination, onPickupChange, onDestinationChange }) {
+export function LocationMapPicker({
+  pickup,
+  destination,
+  onPickupChange,
+  onDestinationChange,
+  onRouteChange
+}) {
   const container = useRef(null);
   const mapRef = useRef(null);
   const layerRef = useRef(null);
+  const routeRequest = useRef(0);
   const [activeTarget, setActiveTarget] = useState('pickup');
   const [locating, setLocating] = useState(false);
+  const [routing, setRouting] = useState(false);
+  const [routeInfo, setRouteInfo] = useState(null);
   const [mapError, setMapError] = useState('');
 
   async function setPoint(kind, lat, lng) {
@@ -221,6 +213,7 @@ export function LocationMapPicker({ pickup, destination, onPickupChange, onDesti
 
     return () => {
       active = false;
+      routeRequest.current += 1;
       if (mapRef.current) mapRef.current.remove();
       mapRef.current = null;
       layerRef.current = null;
@@ -241,7 +234,12 @@ export function LocationMapPicker({ pickup, destination, onPickupChange, onDesti
     const layer = layerRef.current;
     if (!L || !map || !layer) return;
 
+    const currentRequest = ++routeRequest.current;
     layer.clearLayers();
+    setMapError('');
+    setRouteInfo(null);
+    onRouteChange?.(null);
+
     const points = [];
 
     if (pickup) {
@@ -270,15 +268,39 @@ export function LocationMapPicker({ pickup, destination, onPickupChange, onDesti
       points.push([destination.lat, destination.lng]);
     }
 
-    if (pickup && destination) {
-      L.polyline(
-        [[pickup.lat, pickup.lng], [destination.lat, destination.lng]],
-        { weight: 4, opacity: 0.8, dashArray: '10 8' }
-      ).addTo(layer);
+    if (!pickup || !destination) {
+      setRouting(false);
+      fitMap(map, points);
+      return;
     }
 
-    fitMap(map, points);
-  }, [pickup, destination]);
+    setRouting(true);
+    const controller = new AbortController();
+
+    getDrivingRoute(pickup, destination, controller.signal)
+      .then(route => {
+        if (routeRequest.current !== currentRequest) return;
+        setRouteInfo(route);
+        onRouteChange?.(route);
+        const roadPoints = route.coordinates.map(([lng, lat]) => [lat, lng]);
+        L.polyline(roadPoints, { weight: 5, opacity: 0.88 }).addTo(layer);
+        fitMap(map, roadPoints);
+      })
+      .catch(err => {
+        if (err?.name === 'AbortError' || routeRequest.current !== currentRequest) return;
+        L.polyline(
+          [[pickup.lat, pickup.lng], [destination.lat, destination.lng]],
+          { weight: 4, opacity: 0.75, dashArray: '10 8' }
+        ).addTo(layer);
+        fitMap(map, points);
+        setMapError('Road route unavailable right now. Using a direct-line fallback.');
+      })
+      .finally(() => {
+        if (routeRequest.current === currentRequest) setRouting(false);
+      });
+
+    return () => controller.abort();
+  }, [pickup, destination, onRouteChange]);
 
   function useMyLocation() {
     if (!navigator.geolocation) return setMapError('Your browser does not support location access.');
@@ -339,13 +361,19 @@ export function LocationMapPicker({ pickup, destination, onPickupChange, onDesti
       <span>Click anywhere on the map or drag an existing pin to fine-tune it.</span>
     </div>
 
+    {routeInfo && <div className="road-route-summary">
+      <div><span>ROAD DISTANCE</span><strong>{routeInfo.distanceKm} km</strong></div>
+      <div><span>EST. DRIVE</span><strong>{routeInfo.durationMinutes} min</strong></div>
+    </div>}
+    {routing && <p className="route-loading">Calculating the real driving route…</p>}
     {mapError && <p className="form-error" role="alert">{mapError}</p>}
+
     <div ref={container} className="osm-map osm-map-interactive" aria-label="Interactive map for choosing pickup and destination" />
-    <p className="map-credit-note">Search and reverse lookup are user-triggered and rate-limited. Map and place data © OpenStreetMap contributors.</p>
+    <p className="map-credit-note">Map and place data © OpenStreetMap contributors. Road route is calculated separately from the selected points.</p>
   </div>;
 }
 
-export function GroupMap({ destination, members = [] }) {
+export function GroupMap({ destination, members = [], routeGeometry, meetingPoint }) {
   const container = useRef(null);
   const mapRef = useRef(null);
 
@@ -359,13 +387,52 @@ export function GroupMap({ destination, members = [] }) {
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
       const layer = L.layerGroup().addTo(map);
+      const points = [];
 
-      const pickups = members
+      if (routeGeometry) {
+        try {
+          const route = JSON.parse(routeGeometry);
+          if (Array.isArray(route) && route.length > 1) {
+            const roadPoints = route
+              .filter(point => Array.isArray(point) && point.length >= 2)
+              .map(([lng, lat]) => [lat, lng]);
+            if (roadPoints.length > 1) {
+              L.polyline(roadPoints, { weight: 5, opacity: 0.82 }).addTo(layer);
+              points.push(...roadPoints);
+            }
+          }
+        } catch (_) {
+          // Older trips may not contain route geometry.
+        }
+      }
+
+      members
         .filter(member => Number.isFinite(member.pickupLatitude) && Number.isFinite(member.pickupLongitude))
-        .map(member => ({ lat: member.pickupLatitude, lng: member.pickupLongitude, label: `${member.userName} · ${member.pickup}` }));
-      const locations = [...pickups];
-      if (destination && Number.isFinite(destination.lat) && Number.isFinite(destination.lng)) locations.push(destination);
-      drawReadOnlyLocations(L, map, layer, locations);
+        .forEach(member => {
+          const point = [member.pickupLatitude, member.pickupLongitude];
+          points.push(point);
+          L.marker(point, { icon: pinIcon(L, 'pickup') })
+            .bindPopup(`${member.userName} · ${member.pickup}`)
+            .addTo(layer);
+        });
+
+      if (destination && Number.isFinite(destination.lat) && Number.isFinite(destination.lng)) {
+        const point = [destination.lat, destination.lng];
+        points.push(point);
+        L.marker(point, { icon: pinIcon(L, 'destination') })
+          .bindPopup(destination.label || 'Destination')
+          .addTo(layer);
+      }
+
+      if (meetingPoint && Number.isFinite(meetingPoint.lat) && Number.isFinite(meetingPoint.lng)) {
+        const point = [meetingPoint.lat, meetingPoint.lng];
+        points.push(point);
+        L.marker(point, { icon: pinIcon(L, 'meeting') })
+          .bindPopup(meetingPoint.label || 'Suggested meeting point')
+          .addTo(layer);
+      }
+
+      fitMap(map, points);
       mapRef.current = map;
       window.setTimeout(() => map.invalidateSize(), 0);
     }).catch(() => {});
@@ -375,7 +442,7 @@ export function GroupMap({ destination, members = [] }) {
       if (mapRef.current) mapRef.current.remove();
       mapRef.current = null;
     };
-  }, [destination?.lat, destination?.lng, members]);
+  }, [destination?.lat, destination?.lng, members, routeGeometry, meetingPoint?.lat, meetingPoint?.lng]);
 
-  return <div ref={container} className="osm-map group-osm-map" aria-label="Map showing group pickup points and destination" />;
+  return <div ref={container} className="osm-map group-osm-map" aria-label="Map showing group pickup points, route and destination" />;
 }
