@@ -27,6 +27,7 @@ public class SharedTripMember {
 
     private Double pickupLatitude;
     private Double pickupLongitude;
+    private Boolean ready = Boolean.FALSE;
 
     public SharedTripMember() {}
 
@@ -48,6 +49,7 @@ public class SharedTripMember {
         this.pickup = pickup;
         this.pickupLatitude = pickupLatitude;
         this.pickupLongitude = pickupLongitude;
+        this.ready = Boolean.FALSE;
     }
 
     public Long getId() { return id; }
@@ -64,6 +66,8 @@ public class SharedTripMember {
     public void setPickupLatitude(Double value) { pickupLatitude = value; }
     public Double getPickupLongitude() { return pickupLongitude; }
     public void setPickupLongitude(Double value) { pickupLongitude = value; }
+    public boolean isReady() { return Boolean.TRUE.equals(ready); }
+    public void setReady(Boolean value) { ready = Boolean.TRUE.equals(value); }
 
     public String getInitials() {
         if (userName == null || userName.isBlank()) return "?";
