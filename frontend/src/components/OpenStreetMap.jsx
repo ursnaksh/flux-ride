@@ -134,7 +134,7 @@ export function resolveMeetingPlace(lat, lng) {
 }
 
 function pinIcon(L, kind) {
-  const letter = kind === 'pickup' ? 'P' : kind === 'destination' ? 'D' : 'M';
+  const letter = kind === 'pickup' ? 'P' : kind === 'destination' ? 'D' : kind === 'live' ? '•' : 'M';
   return L.divIcon({
     className: '',
     html: `<span class="flux-map-pin flux-map-pin-${kind}"><span>${letter}</span></span>`,
@@ -411,7 +411,7 @@ export function LocationMapPicker({
   </div>;
 }
 
-export function GroupMap({ destination, members = [], routeGeometry, meetingPoint }) {
+export function GroupMap({ destination, members = [], routeGeometry, meetingPoint, liveLocations = [] }) {
   const container = useRef(null);
   const mapRef = useRef(null);
 
@@ -470,6 +470,20 @@ export function GroupMap({ destination, members = [], routeGeometry, meetingPoin
           .addTo(layer);
       }
 
+      liveLocations
+        .filter(item => Number.isFinite(item.latitude) && Number.isFinite(item.longitude))
+        .forEach(item => {
+          const point = [item.latitude, item.longitude];
+          points.push(point);
+          L.marker(point, {
+            icon: pinIcon(L, 'live'),
+            zIndexOffset: 1200
+          })
+            .bindPopup(`${item.userName} · live location`)
+            .bindTooltip(`${item.userName} · live`, { direction: 'top', offset: [0, -34] })
+            .addTo(layer);
+        });
+
       fitMap(map, points);
       mapRef.current = map;
       window.setTimeout(() => map.invalidateSize(), 0);
@@ -480,7 +494,7 @@ export function GroupMap({ destination, members = [], routeGeometry, meetingPoin
       if (mapRef.current) mapRef.current.remove();
       mapRef.current = null;
     };
-  }, [destination?.lat, destination?.lng, members, routeGeometry, meetingPoint?.lat, meetingPoint?.lng]);
+  }, [destination?.lat, destination?.lng, members, routeGeometry, meetingPoint?.lat, meetingPoint?.lng, liveLocations]);
 
   return <div ref={container} className="osm-map group-osm-map" aria-label="Map showing group pickup points, route and destination" />;
 }
