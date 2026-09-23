@@ -27,9 +27,9 @@ export default function InviteGroup() {
 
       try {
         const [summaryResponse, myGroupsResponse, ridesResponse] = await Promise.all([
-          axiosClient.get(\`/api/pools/\${groupId}/invite\`),
-          axiosClient.get(\`/api/pools/user/\${userId}\`),
-          axiosClient.get(\`/api/rides/user/\${userId}\`)
+          axiosClient.get(`/api/pools/${groupId}/invite`),
+          axiosClient.get(`/api/pools/user/${userId}`),
+          axiosClient.get(`/api/rides/user/${userId}`)
         ]);
 
         if (!alive) return;
@@ -55,7 +55,7 @@ export default function InviteGroup() {
 
         for (const ride of candidates) {
           try {
-            const matchResponse = await axiosClient.get(\`/api/pools/matches/\${ride.id}\`);
+            const matchResponse = await axiosClient.get(`/api/pools/matches/${ride.id}`);
             const invitedMatch = (matchResponse.data || []).find(match =>
               String(match.sharedTripId) === String(groupId)
             );
@@ -86,8 +86,8 @@ export default function InviteGroup() {
     setJoining(true);
     setError('');
     try {
-      await axiosClient.post(\`/api/pools/\${groupId}/join/\${compatibleRequest.ride.id}\`);
-      navigate(\`/groups/\${groupId}\`, { replace: true });
+      await axiosClient.post(`/api/pools/${groupId}/join/${compatibleRequest.ride.id}`);
+      navigate(`/groups/${groupId}`, { replace: true });
     } catch (err) {
       setError(err.message);
       setJoining(false);
@@ -140,7 +140,7 @@ export default function InviteGroup() {
         <p className="eyebrow">YOU’RE ALREADY IN</p>
         <h2>This is your group.</h2>
         <p className="quiet-note">Open the Group Room to see everyone, the meeting point, live trip map and chat.</p>
-        <Link to={\`/groups/\${groupId}\`} className="btn btn-primary">Open Group Room →</Link>
+        <Link to={`/groups/${groupId}`} className="btn btn-primary">Open Group Room →</Link>
       </> : !canAccept ? <>
         <p className="eyebrow">INVITE CLOSED</p>
         <h2>This group isn’t accepting new passengers.</h2>
@@ -164,7 +164,7 @@ export default function InviteGroup() {
         <p className="eyebrow">SET YOUR PICKUP</p>
         <h2>Tell FLUX where you’re joining from.</h2>
         <p className="quiet-note">The destination and departure time are already loaded from the invite. You only need to choose your pickup and confirm the route.</p>
-        <Link to={\`/find?invite=\${groupId}\`} className="btn btn-primary">Choose my pickup →</Link>
+        <Link to={`/find?invite=${groupId}`} className="btn btn-primary">Choose my pickup →</Link>
       </>}
     </section>
   </div>;
