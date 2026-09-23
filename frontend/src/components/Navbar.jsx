@@ -13,27 +13,32 @@ export default function Navbar() {
 
   return <>
     <a className="skip-link" href="#main-content">Skip to content</a>
-    <header className="navbar">
-      <Link to="/" className="navbar-brand" aria-label="FLUX RIDE home">
-        <span className="brand-mark" aria-hidden="true">
-          <span className="brand-node brand-node-a"></span>
-          <span className="brand-route"></span>
-          <span className="brand-node brand-node-b"></span>
+    <header className="navbar flux-nav">
+      <Link to="/" className="navbar-brand flux-brand" aria-label="FLUX RIDE home">
+        <span className="flux-logo" aria-hidden="true">
+          <i className="flux-logo-orbit"></i>
+          <i className="flux-logo-core"></i>
         </span>
-        <span className="brand-word">FLUX <span className="brand-light">RIDE</span></span>
+        <span className="flux-brand-copy">
+          <strong>FLUX RIDE</strong>
+          <small>by Team FLUX</small>
+        </span>
       </Link>
 
-      {signedIn && <nav className="navbar-links" aria-label="Main navigation">
-        <NavLink to="/" end>Home</NavLink>
-        <NavLink to="/find">Find a ride</NavLink>
-        <NavLink to="/my-trips">My trips</NavLink>
+      {signedIn && <nav className="navbar-links flux-nav-links" aria-label="Main navigation">
+        <NavLink to="/" end><span>Home</span></NavLink>
+        <NavLink to="/find"><span>Find ride</span></NavLink>
+        <NavLink to="/my-trips"><span>My trips</span></NavLink>
       </nav>}
 
-      <div className="navbar-right">{signedIn ? <>
+      <div className="navbar-right flux-nav-actions">{signedIn ? <>
         <NotificationCenter />
-        <span className="navbar-user">Hey, {name?.split(' ')[0] || 'there'}</span>
+        <div className="flux-user-chip">
+          <span className="flux-user-avatar">{(name?.trim()?.[0] || 'F').toUpperCase()}</span>
+          <span>{name?.split(' ')[0] || 'there'}</span>
+        </div>
         <button className="btn btn-ghost nav-logout" onClick={logout}>Log out</button>
-      </> : <Link className="btn btn-primary" to="/login">Get started</Link>}</div>
+      </> : <Link className="btn btn-primary nav-cta" to="/login">Get started <span>↗</span></Link>}</div>
     </header>
   </>;
 }
