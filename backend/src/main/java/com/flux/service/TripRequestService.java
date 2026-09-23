@@ -53,6 +53,8 @@ public class TripRequestService {
         tripRequest.setPickupLongitude(request.getPickupLongitude());
         tripRequest.setDropLatitude(request.getDropLatitude());
         tripRequest.setDropLongitude(request.getDropLongitude());
+        tripRequest.setRouteGeometry(request.getRouteGeometry());
+        tripRequest.setRouteDurationMinutes(request.getRouteDurationMinutes());
 
         tripRequest.setDistanceKm(
                 request.getDistanceKm()
