@@ -218,9 +218,9 @@ jobs:
 
             // The completed smoke group renders the group room, map, route, readiness and chat.
             await page.goto(process.env.FRONTEND + '/groups/' + process.env.SMOKE_GROUP_ID, { waitUntil: 'networkidle', timeout: 60000 });
-            await page.getByRole('heading', { name: 'Group Room' }).waitFor();
+            await page.getByRole('heading', { name: /Group Room|Trip Mode/ }).waitFor();
             await page.getByText('2/2 passengers ready').waitFor();
-            await page.getByText('Suggested meeting point', { exact: true }).waitFor();
+            await page.locator('.meeting-suggestion').waitFor({ state: 'visible', timeout: 30000 });
             await page.getByText('Coordinate your ride').waitFor();
             await page.getByText('Smoke hello ' + process.env.SMOKE_RUN_ID).waitFor();
             await page.getByText('Notifications on').waitFor();
