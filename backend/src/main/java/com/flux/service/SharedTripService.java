@@ -252,20 +252,29 @@ public class SharedTripService {
         sharedTrip.getMembers().add(member);
 
         /*
-         * Once the group reaches maximum capacity,
-         * it becomes READY.
+         * READY now means every current passenger has explicitly
+         * confirmed readiness, not simply that the group is full.
          */
-        if (sharedTrip.getMembers().size()
-                >= SharedTrip.MAX_MEMBERS) {
-
-            sharedTrip.setStatus(
-                    SharedTrip.SharedTripStatus.READY
-            );
-        }
+        sharedTrip.setStatus(SharedTrip.SharedTripStatus.FORMING);
 
         SharedTrip savedTrip = sharedTripRepository.save(sharedTrip);
         tripRequest.setStatus(TripRequest.TripRequestStatus.MATCHED);
         tripRequestRepository.save(tripRequest);
+
+        if (savedTrip.getSourceTripRequestId() != null
+                && savedTrip.getMembers().size() > 1) {
+            tripRequestRepository.findById(savedTrip.getSourceTripRequestId())
+                    .ifPresent(sourceRequest -> {
+                        if (sourceRequest.getStatus()
+                                == TripRequest.TripRequestStatus.SEARCHING) {
+                            sourceRequest.setStatus(
+                                    TripRequest.TripRequestStatus.MATCHED
+                            );
+                            tripRequestRepository.save(sourceRequest);
+                        }
+                    });
+        }
+
         return savedTrip;
     }
 
@@ -280,6 +289,9 @@ public class SharedTripService {
         group.setDestinationLabel(request.getDrop().trim());
         group.setDestinationLatitude(request.getDropLatitude());
         group.setDestinationLongitude(request.getDropLongitude());
+        group.setRouteGeometry(request.getRouteGeometry());
+        group.setRouteDistanceKm(request.getDistanceKm());
+        group.setRouteDurationMinutes(request.getRouteDurationMinutes());
         group.setDepartureTime(request.getDepartureTime());
         group.setTotalFare(request.getFare());
         group.setStatus(SharedTrip.SharedTripStatus.FORMING);
@@ -351,6 +363,54 @@ public class SharedTripService {
                         )
                 );
     }
+
+    @Transactional
+    public SharedTrip updateReady(
+            Long sharedTripId,
+            Long userId,
+            boolean ready) {
+
+        SharedTrip sharedTrip = getById(sharedTripId);
+
+        if (sharedTrip.getStatus()
+                == SharedTrip.SharedTripStatus.COMPLETED
+                || sharedTrip.getStatus()
+                == SharedTrip.SharedTripStatus.CANCELLED
+                || sharedTrip.getStatus()
+                == SharedTrip.SharedTripStatus.BOOKED_EXTERNALLY) {
+
+            throw new IllegalArgumentException(
+                    "Readiness cannot be changed for this trip"
+            );
+        }
+
+        SharedTripMember member = sharedTrip.getMembers()
+                .stream()
+                .filter(item -> item.getUserId().equals(userId))
+                .findFirst()
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User is not a member of this shared trip"
+                        )
+                );
+
+        member.setReady(ready);
+
+        boolean everyoneReady =
+                sharedTrip.getMembers().size() > 1
+                        && sharedTrip.getMembers()
+                        .stream()
+                        .allMatch(SharedTripMember::isReady);
+
+        sharedTrip.setStatus(
+                everyoneReady
+                        ? SharedTrip.SharedTripStatus.READY
+                        : SharedTrip.SharedTripStatus.FORMING
+        );
+
+        return sharedTripRepository.save(sharedTrip);
+    }
+
 
     public SharedTrip leaveSharedTrip(
             Long sharedTripId,
@@ -467,7 +527,9 @@ public class SharedTripService {
                             result.getScore(),
                             result.getReasons(),
                             currentMembers,
-                            availableSeats
+                            availableSeats,
+                            result.getRouteOverlapScore(),
+                            result.getEstimatedDetourKm()
                     );
                 })
 
