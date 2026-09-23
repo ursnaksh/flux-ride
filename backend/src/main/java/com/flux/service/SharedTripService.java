@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.flux.dto.InviteGroupSummary;
+import com.flux.dto.LiveLocationView;
 import com.flux.dto.MatchResult;
 import com.flux.dto.PoolRequest;
 import com.flux.exception.ResourceNotFoundException;
@@ -362,6 +364,94 @@ public class SharedTripService {
                                         + sharedTripId
                         )
                 );
+    }
+
+
+    public InviteGroupSummary getInviteSummary(Long sharedTripId) {
+        return new InviteGroupSummary(getById(sharedTripId));
+    }
+
+    @Transactional
+    public SharedTrip updateLiveLocation(
+            Long sharedTripId,
+            Long userId,
+            boolean sharing,
+            Double latitude,
+            Double longitude) {
+
+        SharedTrip sharedTrip = getById(sharedTripId);
+
+        SharedTripMember member = sharedTrip.getMembers()
+                .stream()
+                .filter(item -> item.getUserId().equals(userId))
+                .findFirst()
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User is not a member of this shared trip"
+                        )
+                );
+
+        if (!sharing) {
+            member.setLiveLocationSharing(false);
+            member.setLiveLatitude(null);
+            member.setLiveLongitude(null);
+            member.setLiveLocationUpdatedAt(null);
+            return sharedTripRepository.save(sharedTrip);
+        }
+
+        if (latitude == null || longitude == null
+                || !Double.isFinite(latitude)
+                || !Double.isFinite(longitude)
+                || latitude < -90.0 || latitude > 90.0
+                || longitude < -180.0 || longitude > 180.0) {
+            throw new IllegalArgumentException(
+                    "Valid latitude and longitude are required while sharing location"
+            );
+        }
+
+        member.setLiveLocationSharing(true);
+        member.setLiveLatitude(latitude);
+        member.setLiveLongitude(longitude);
+        member.setLiveLocationUpdatedAt(LocalDateTime.now());
+
+        return sharedTripRepository.save(sharedTrip);
+    }
+
+    public List<LiveLocationView> getLiveLocations(
+            Long sharedTripId,
+            Long requesterUserId) {
+
+        SharedTrip sharedTrip = getById(sharedTripId);
+
+        boolean requesterIsMember = sharedTrip.getMembers()
+                .stream()
+                .anyMatch(member ->
+                        member.getUserId().equals(requesterUserId)
+                );
+
+        if (!requesterIsMember) {
+            throw new ResourceNotFoundException(
+                    "User is not a member of this shared trip"
+            );
+        }
+
+        LocalDateTime freshAfter = LocalDateTime.now().minusMinutes(2);
+
+        return sharedTrip.getMembers()
+                .stream()
+                .filter(SharedTripMember::isLiveLocationSharing)
+                .filter(member -> member.getLiveLatitude() != null
+                        && member.getLiveLongitude() != null
+                        && member.getLiveLocationUpdatedAt() != null
+                        && member.getLiveLocationUpdatedAt().isAfter(freshAfter))
+                .map(member -> new LiveLocationView(
+                        member.getUserId(),
+                        member.getUserName(),
+                        member.getLiveLatitude(),
+                        member.getLiveLongitude(),
+                        member.getLiveLocationUpdatedAt()
+                ))
+                .toList();
     }
 
     @Transactional
