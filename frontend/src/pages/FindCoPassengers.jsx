@@ -87,6 +87,31 @@ function RequestResults({ requestId }) {
     return () => { alive.current = false; version.current++; };
   }, [load]);
 
+  // Refresh the owner's group while this page is open so joins made by
+  // another passenger appear without a manual page refresh.
+  useEffect(() => {
+    if (!requestId || !userId) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await axiosClient.get(`/api/pools/user/${userId}`);
+        if (!alive.current) return;
+        const group = (response.data || []).find(pool =>
+          String(pool.sourceTripRequestId) === String(requestId)
+        );
+        if (group) {
+          setJoined(group);
+          if ((group.members?.length || 0) > 1) {
+            setRequest(value => value ? { ...value, status: 'MATCHED' } : value);
+            setMatches([]);
+          }
+        }
+      } catch (_) {
+        // Keep the current screen; the normal refresh path handles errors.
+      }
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [requestId, userId]);
+
   async function join(groupId) {
     if (pending.current || loading || error || request?.status !== 'SEARCHING') return;
     if (!isFuture(request.departureTime)) { await load(); return; }
