@@ -276,15 +276,30 @@ function RequestResults({ requestId }) {
         : request?.status === 'MATCHED' ? <div aria-live="polite"><div className="success-message"><strong>{created ? "Group created — you’re the first passenger." : "MATCHED — you’ve joined a group."}</strong><p>{created ? "Your request is MATCHED. Other compatible passengers can now find and join this group." : "Agree on your pickup, then arrange your cab or auto together."}</p></div>
           {joined && <PoolCard pool={joined} />}<Link to="/my-trips" className="btn btn-primary result-link">View my trips →</Link></div>
         : request && (request.status !== 'SEARCHING' || !isFuture(request.departureTime)) ? <div className="empty-state"><h3>This request is no longer available for matching.</h3><p>{request.status === 'SEARCHING' ? 'Its departure time has passed.' : `Its current status is ${request.status}.`}</p><Link className="btn btn-primary" to="/find">Plan a new trip</Link></div>
-        : matches.length ? <><p className="results-caption">{matches.length} compatible {matches.length === 1 ? 'group' : 'groups'} · Best matches first</p><div className="match-list">{matches.map((match, index) => <article className="card match-card" key={match.sharedTripId}>
-            <div className="card-row"><span className="match-score">{matchPercentage(match.compatibilityScore)}% Match</span>{index === 0 && <span className="best-match">TOP MATCH</span>}</div>
-            <h3>To {match.destination}</h3><p className="departure-line">{formatDeparture(match.departureTime)}</p>
+        : matches.length ? <><p className="results-caption">{matches.length} compatible {matches.length === 1 ? 'group' : 'groups'} · Best matches first</p><div className="match-list">{matches.map((match, index) => <article
+            className={`card match-card ${index === 0 ? 'match-card-featured' : ''}`}
+            key={match.sharedTripId}
+            style={{ '--match': matchPercentage(match.compatibilityScore) }}
+          >
+            <div className="match-card-top">
+              <div className="match-ring" aria-label={`${matchPercentage(match.compatibilityScore)} percent match`}>
+                <div><strong>{matchPercentage(match.compatibilityScore)}</strong><span>%</span></div>
+              </div>
+              <div className="match-title-block">
+                <div className="match-label-row">
+                  <span className="match-label">ROUTE MATCH</span>
+                  {index === 0 && <span className="best-match"><i></i> BEST FIT</span>}
+                </div>
+                <h3>Heading to {match.destination}</h3>
+                <p className="departure-line">{formatDeparture(match.departureTime)}</p>
+              </div>
+            </div>
             {(match.routeOverlapScore > 0 || match.estimatedDetourKm != null) && <div className="route-match-metrics">
               {match.routeOverlapScore > 0 && <span><strong>{Math.round(match.routeOverlapScore * 100)}%</strong> route overlap</span>}
               {match.estimatedDetourKm != null && <span><strong>+{Number(match.estimatedDetourKm).toFixed(1)} km</strong> pickup detour</span>}
             </div>}
             <ul className="match-reasons">{match.reasons.map(reason => <li key={reason}><span aria-hidden="true">✓</span> {reason}</li>)}</ul>
-            <div className="match-bottom"><div><strong>{match.availableSeats} {match.availableSeats === 1 ? 'seat' : 'seats'} available</strong><span>{match.currentMembers}/4 passengers · Group #{match.sharedTripId}</span></div>
+            <div className="match-bottom"><div><strong>{match.availableSeats} {match.availableSeats === 1 ? 'seat' : 'seats'} open</strong><span>{match.currentMembers}/4 already in · Group #{match.sharedTripId}</span></div>
               <button className="btn btn-primary" disabled={joining !== null || match.availableSeats <= 0} onClick={() => join(match.sharedTripId)} aria-label={`Join Group ${match.sharedTripId}`}>
                 {joining === match.sharedTripId ? 'Joining…' : 'Join Group →'}</button></div>
           </article>)}</div><p className="quiet-note">New map-based trips are ranked by destination proximity, shared route, pickup detour and departure time. Older requests fall back to text matching.</p></>
