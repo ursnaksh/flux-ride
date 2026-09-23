@@ -17,12 +17,15 @@ public class TripRequestService {
     private static final double RATE_PER_KM = 12.0;
 
     private final TripRequestRepository tripRequestRepository;
+    private final SharedTripService sharedTripService;
 
     @Autowired
     public TripRequestService(
-            TripRequestRepository tripRequestRepository) {
+            TripRequestRepository tripRequestRepository,
+            SharedTripService sharedTripService) {
 
         this.tripRequestRepository = tripRequestRepository;
+        this.sharedTripService = sharedTripService;
     }
 
     public static double calculateFare(double distanceKm) {
@@ -62,7 +65,9 @@ public class TripRequestService {
                 TripRequest.TripRequestStatus.SEARCHING
         );
 
-        return tripRequestRepository.save(tripRequest);
+        TripRequest saved = tripRequestRepository.save(tripRequest);
+        sharedTripService.ensureGroupForRequest(saved);
+        return saved;
     }
 
     public List<TripRequest> getRequestsForUser(
