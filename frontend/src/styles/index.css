@@ -1021,3 +1021,5 @@ h3 { line-height: 1.4; overflow-wrap: anywhere; }
   .map-pin-mode button { flex:1; }
   .map-secondary-tools .btn { flex:1; }
 }
+
+.flux-map-pin > span { transform:rotate(45deg); display:block; }
