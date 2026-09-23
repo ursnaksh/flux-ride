@@ -1,9 +1,36 @@
 import { useEffect, useMemo, useState } from 'react';
-import QRCode from 'qrcode';
+
+const QR_SCRIPT = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js';
+let qrPromise;
+
+function ensureQrLibrary() {
+  if (window.QRCode?.toDataURL) return Promise.resolve(window.QRCode);
+  if (qrPromise) return qrPromise;
+
+  qrPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-flux-qr]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.QRCode), { once: true });
+      existing.addEventListener('error', reject, { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = QR_SCRIPT;
+    script.async = true;
+    script.dataset.fluxQr = 'true';
+    script.onload = () => resolve(window.QRCode);
+    script.onerror = () => reject(new Error('QR generator could not be loaded.'));
+    document.head.appendChild(script);
+  });
+
+  return qrPromise;
+}
 
 export default function InviteShareCard({ groupId, destination, departureTime, onClose }) {
   const [qr, setQr] = useState('');
   const [copied, setCopied] = useState(false);
+  const [qrError, setQrError] = useState('');
 
   const inviteUrl = useMemo(
     () => \`\${window.location.origin}/invite/\${groupId}\`,
@@ -12,15 +39,20 @@ export default function InviteShareCard({ groupId, destination, departureTime, o
 
   useEffect(() => {
     let active = true;
-    QRCode.toDataURL(inviteUrl, {
-      width: 280,
-      margin: 1,
-      errorCorrectionLevel: 'M'
-    }).then(value => {
-      if (active) setQr(value);
-    }).catch(() => {
-      if (active) setQr('');
-    });
+
+    ensureQrLibrary()
+      .then(QRCode => QRCode.toDataURL(inviteUrl, {
+        width: 280,
+        margin: 1,
+        errorCorrectionLevel: 'M'
+      }))
+      .then(value => {
+        if (active) setQr(value);
+      })
+      .catch(() => {
+        if (active) setQrError('QR unavailable — the invite link still works.');
+      });
+
     return () => { active = false; };
   }, [inviteUrl]);
 
@@ -59,7 +91,9 @@ export default function InviteShareCard({ groupId, destination, departureTime, o
       </p>
 
       <div className="invite-qr-wrap">
-        {qr ? <img src={qr} alt="QR code for this FLUX RIDE invite" /> : <div className="invite-qr-loading">Generating QR…</div>}
+        {qr
+          ? <img src={qr} alt="QR code for this FLUX RIDE invite" />
+          : <div className="invite-qr-loading">{qrError || 'Generating QR…'}</div>}
       </div>
 
       <div className="invite-route-mini">
