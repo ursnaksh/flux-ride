@@ -7,6 +7,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public class CreateTripRequest {
 
@@ -19,21 +20,20 @@ public class CreateTripRequest {
     @NotBlank(message = "drop is required")
     private String drop;
 
-    @DecimalMin(value = "-90.0")
-    @DecimalMax(value = "90.0")
+    @DecimalMin(value = "-90.0") @DecimalMax(value = "90.0")
     private Double pickupLatitude;
-
-    @DecimalMin(value = "-180.0")
-    @DecimalMax(value = "180.0")
+    @DecimalMin(value = "-180.0") @DecimalMax(value = "180.0")
     private Double pickupLongitude;
-
-    @DecimalMin(value = "-90.0")
-    @DecimalMax(value = "90.0")
+    @DecimalMin(value = "-90.0") @DecimalMax(value = "90.0")
     private Double dropLatitude;
-
-    @DecimalMin(value = "-180.0")
-    @DecimalMax(value = "180.0")
+    @DecimalMin(value = "-180.0") @DecimalMax(value = "180.0")
     private Double dropLongitude;
+
+    @Size(max = 30000, message = "routeGeometry is too large")
+    private String routeGeometry;
+
+    @DecimalMin(value = "0.0", inclusive = false)
+    private Double routeDurationMinutes;
 
     @NotNull(message = "distanceKm is required")
     @DecimalMin(value = "0.0", inclusive = false, message = "distanceKm must be positive")
@@ -57,6 +57,10 @@ public class CreateTripRequest {
     public void setDropLatitude(Double value) { dropLatitude = value; }
     public Double getDropLongitude() { return dropLongitude; }
     public void setDropLongitude(Double value) { dropLongitude = value; }
+    public String getRouteGeometry() { return routeGeometry; }
+    public void setRouteGeometry(String value) { routeGeometry = value; }
+    public Double getRouteDurationMinutes() { return routeDurationMinutes; }
+    public void setRouteDurationMinutes(Double value) { routeDurationMinutes = value; }
     public Double getDistanceKm() { return distanceKm; }
     public void setDistanceKm(Double value) { distanceKm = value; }
     public LocalDateTime getDepartureTime() { return departureTime; }
