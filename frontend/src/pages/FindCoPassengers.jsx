@@ -25,10 +25,12 @@ function RequestForm() {
   const [pickup, setPickup] = useState(null);
   const [destination, setDestination] = useState(null);
   const [departureTime, setDepartureTime] = useState('');
+  const [routeInfo, setRouteInfo] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const pending = useRef(false);
-  const distanceKm = distanceBetweenKm(pickup, destination);
+  const directDistanceKm = distanceBetweenKm(pickup, destination);
+  const distanceKm = routeInfo?.distanceKm || directDistanceKm;
 
   async function submit(event) {
     event.preventDefault();
@@ -49,6 +51,8 @@ function RequestForm() {
         pickupLongitude: pickup.lng,
         dropLatitude: destination.lat,
         dropLongitude: destination.lng,
+        routeGeometry: routeInfo?.coordinates ? JSON.stringify(routeInfo.coordinates) : null,
+        routeDurationMinutes: routeInfo?.durationMinutes || null,
         distanceKm,
         departureTime: departureTime.length === 16 ? `${departureTime}:00` : departureTime
       });
@@ -81,9 +85,11 @@ function RequestForm() {
         </label>
 
         <div className="map-distance-card">
-          <span>Map distance estimate</span>
+          <span>{routeInfo ? 'Real road route' : 'Distance estimate'}</span>
           <strong>{distanceKm ? `${distanceKm} km` : 'Select both points'}</strong>
-          <small>Direct-distance estimate for matching and fare preview; road routing comes next.</small>
+          <small>{routeInfo
+            ? `About ${routeInfo.durationMinutes} min driving · used for route-aware matching.`
+            : 'Waiting for a drivable road route; direct distance is used only as fallback.'}</small>
         </div>
 
         {error && <p className="form-error" role="alert">{error}</p>}
@@ -103,6 +109,7 @@ function RequestForm() {
         destination={destination}
         onPickupChange={setPickup}
         onDestinationChange={setDestination}
+        onRouteChange={setRouteInfo}
       />
     </section>
   </div>;
@@ -227,11 +234,15 @@ function RequestResults({ requestId }) {
         : matches.length ? <><p className="results-caption">{matches.length} compatible {matches.length === 1 ? 'group' : 'groups'} · Best matches first</p><div className="match-list">{matches.map((match, index) => <article className="card match-card" key={match.sharedTripId}>
             <div className="card-row"><span className="match-score">{matchPercentage(match.compatibilityScore)}% Match</span>{index === 0 && <span className="best-match">TOP MATCH</span>}</div>
             <h3>To {match.destination}</h3><p className="departure-line">{formatDeparture(match.departureTime)}</p>
+            {(match.routeOverlapScore > 0 || match.estimatedDetourKm != null) && <div className="route-match-metrics">
+              {match.routeOverlapScore > 0 && <span><strong>{Math.round(match.routeOverlapScore * 100)}%</strong> route overlap</span>}
+              {match.estimatedDetourKm != null && <span><strong>+{Number(match.estimatedDetourKm).toFixed(1)} km</strong> pickup detour</span>}
+            </div>}
             <ul className="match-reasons">{match.reasons.map(reason => <li key={reason}><span aria-hidden="true">✓</span> {reason}</li>)}</ul>
             <div className="match-bottom"><div><strong>{match.availableSeats} {match.availableSeats === 1 ? 'seat' : 'seats'} available</strong><span>{match.currentMembers}/4 passengers · Group #{match.sharedTripId}</span></div>
               <button className="btn btn-primary" disabled={joining !== null || match.availableSeats <= 0} onClick={() => join(match.sharedTripId)} aria-label={`Join Group ${match.sharedTripId}`}>
                 {joining === match.sharedTripId ? 'Joining…' : 'Join Group →'}</button></div>
-          </article>)}</div><p className="quiet-note">Scores compare destination, pickup similarity and timing. Availability is checked again when you join.</p></>
+          </article>)}</div><p className="quiet-note">New map-based trips are ranked by destination proximity, shared route, pickup detour and departure time. Older requests fall back to text matching.</p></>
         : <div className="empty-state no-matches"><span className="discovery-symbol" aria-hidden="true">↗</span><h3>No compatible groups just yet.</h3><p>Your request is saved as SEARCHING. Check again later, or create a new request with different travel details.</p><p>FLUX RIDE won’t automatically join you to another group.</p><Link to="/my-trips" className="btn btn-ghost">View my requests</Link></div>}
       {!loading && !error && request?.status === 'SEARCHING' && isFuture(request.departureTime) && <div className="card create-group-panel">
         <h3>{matches.length ? 'Prefer to start your own group?' : 'Be the first to get a group going.'}</h3>
