@@ -170,7 +170,7 @@ jobs:
               BACKEND+f"/api/pools/user/{user_a['id']}",
               headers={"Origin":FRONTEND}
           )
-          allow=cors_headers.get("Access-Control-Allow-Origin")
+          allow=next((value for key,value in cors_headers.items() if key.lower()=="access-control-allow-origin"),None)
           assert allow==FRONTEND, f"CORS header was {allow!r}"
 
           with open(os.environ["GITHUB_ENV"],"a") as env:
