@@ -915,3 +915,7 @@ h3 { line-height: 1.4; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+.create-group-panel { margin-top: 24px; padding: 24px; background: #f5f8f6; }
+.create-group-panel h3 { font-size: 18px; }
+.create-group-panel .btn { margin-top: 18px; }

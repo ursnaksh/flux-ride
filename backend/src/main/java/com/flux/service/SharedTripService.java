@@ -1,5 +1,6 @@
 package com.flux.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -167,20 +168,9 @@ public class SharedTripService {
     @Transactional
     public SharedTrip joinSharedTrip(
             Long sharedTripId,
-            TripRequest tripRequest) {
+            Long tripRequestId) {
 
-        // Read persisted state within the same transaction as the join.
-        tripRequest = tripRequestRepository.findById(tripRequest.getId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Trip request not found"
-                ));
-
-        if (tripRequest.getStatus()
-                != TripRequest.TripRequestStatus.SEARCHING) {
-            throw new IllegalArgumentException(
-                    "Only SEARCHING trip requests can join a shared trip"
-            );
-        }
+        TripRequest tripRequest = getSearchingRequestForUpdate(tripRequestId);
 
         SharedTrip sharedTrip =
                 getById(sharedTripId);
@@ -275,6 +265,49 @@ public class SharedTripService {
         tripRequest.setStatus(TripRequest.TripRequestStatus.MATCHED);
         tripRequestRepository.save(tripRequest);
         return savedTrip;
+    }
+
+    /** Creates a new group only when the passenger explicitly chooses to do so. */
+    @Transactional
+    public SharedTrip createFromRequest(Long tripRequestId) {
+        TripRequest request = getSearchingRequestForUpdate(tripRequestId);
+        User user = userService.getById(request.getUserId());
+
+        SharedTrip group = new SharedTrip();
+        group.setDestination(normalize(request.getDrop()));
+        group.setDestinationLabel(request.getDrop().trim());
+        group.setDepartureTime(request.getDepartureTime());
+        group.setTotalFare(request.getFare());
+        group.setStatus(SharedTrip.SharedTripStatus.FORMING);
+        group.getMembers().add(new SharedTripMember(
+                group, user.getId(), user.getName(), request.getPickup()
+        ));
+
+        SharedTrip savedGroup = sharedTripRepository.save(group);
+        request.setStatus(TripRequest.TripRequestStatus.MATCHED);
+        tripRequestRepository.save(request);
+        return savedGroup;
+    }
+
+    // Both create and explicit join lock the same request before reading its state.
+    // This prevents simultaneous submissions from using one request twice.
+    private TripRequest getSearchingRequestForUpdate(Long tripRequestId) {
+        TripRequest request = tripRequestRepository.findByIdForUpdate(tripRequestId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Trip request not found: " + tripRequestId
+                ));
+        if (request.getStatus() != TripRequest.TripRequestStatus.SEARCHING) {
+            throw new IllegalArgumentException(
+                    "Only SEARCHING trip requests can create or join a shared trip"
+            );
+        }
+        if (request.getDepartureTime() == null
+                || !request.getDepartureTime().isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException(
+                    "Departure time must be in the future"
+            );
+        }
+        return request;
     }
 
     public List<SharedTrip> getFormingTrips() {

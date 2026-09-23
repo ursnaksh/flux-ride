@@ -7,7 +7,7 @@ async function setup(page, { signedIn = true } = {}) {
   const user = { id: 2, name: 'Swapnil', phone: '9000000002' };
   const member = (id, userId, userName) => ({ id, userId, userName, pickup: 'VIT Main Road', initials: userName[0] });
   const state = {
-    departureTime, requests: [], calls: [], matchFailures: 0, rejectJoin: false, loseJoinResponse: false,
+    departureTime, requests: [], calls: [], matchFailures: 0, rejectJoin: false, loseJoinResponse: false, rejectCreate: false, loseCreateResponse: false,
     matches: [
       { sharedTripId: 101, destination: 'Pune Airport', departureTime, compatibilityScore: 0.91, reasons: ['Same destination', 'Similar pickup route', 'Compatible departure time'], currentMembers: 1, availableSeats: 3 },
       { sharedTripId: 102, destination: 'Pune Airport', departureTime, compatibilityScore: 0.78, reasons: ['Same destination', 'Compatible departure time'], currentMembers: 1, availableSeats: 3 }
@@ -45,6 +45,18 @@ async function setup(page, { signedIn = true } = {}) {
     if (path.startsWith('/api/pools/matches/')) {
       if (state.matchFailures > 0) { state.matchFailures--; return respond(null, 500, 'Matches temporarily unavailable'); }
       return respond(state.matches);
+    }
+    const create = path.match(/^\/api\/pools\/from-request\/(\d+)$/);
+    if (create && method === 'POST') {
+      const request = state.requests.find(r => r.id === Number(create[1]));
+      if (state.rejectCreate) return respond(null, 500, 'Unable to save group');
+      if (!request || request.status !== 'SEARCHING') return respond(null, 400, 'Request is no longer SEARCHING');
+      request.status = 'MATCHED';
+      const group = { id: 103, destinationLabel: request.drop, departureTime: request.departureTime,
+        totalFare: request.fare, status: 'FORMING', members: [member(4, 2, 'Swapnil')] };
+      state.groups.push(group);
+      if (state.loseCreateResponse) return route.abort('failed');
+      return respond(group, 201);
     }
     const join = path.match(/^\/api\/pools\/(\d+)\/join\/(\d+)$/);
     if (join && method === 'POST') {
@@ -186,4 +198,51 @@ async function fillPlan(page, departureTime) {
   await expect(page.getByText('78% Match')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('matches-mobile.png'), fullPage: true });
+ });
+
+ test('creates a group from an empty result and restores MATCHED after reload', async ({ page }) => {
+  const state = await setup(page); state.seedRequest(); state.matches = [];
+  await page.goto('/find?request=7');
+  await page.getByRole('button', { name: 'Create Group', exact: true }).dblclick();
+  await expect(page.getByText('Group created — you’re the first passenger.')).toBeVisible();
+  await expect(page.getByText('Swapnil', { exact: true })).toBeVisible();
+  await expect(page.getByText('1/4 passengers', { exact: false })).toBeVisible();
+  expect(state.calls.filter(c => c.path === '/api/pools/from-request/7')).toHaveLength(1);
+  expect(state.calls.filter(c => c.path === '/api/pools')).toHaveLength(0);
+  await page.reload();
+  await expect(page.getByText('MATCHED — you’ve joined a group.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create Group', exact: true })).toHaveCount(0);
+  await page.getByRole('link', { name: 'View my trips' }).click();
+  await page.getByRole('button', { name: 'Shared trips (1)' }).click();
+  await expect(page.getByText('Swapnil', { exact: true })).toBeVisible();
+ });
+
+ test('creation remains an explicit choice when compatible groups already exist', async ({ page }) => {
+  const state = await setup(page); state.seedRequest();
+  await page.goto('/find?request=7');
+  await expect(page.getByText('78% Match')).toBeVisible();
+  await page.getByRole('button', { name: 'Create Group', exact: true }).click();
+  await expect(page.getByText('Group created — you’re the first passenger.')).toBeVisible();
+  expect(state.calls.filter(c => c.path.includes('/join/'))).toHaveLength(0);
+  expect(state.groups[0].members).toHaveLength(1);
+ });
+
+ test('failed creation keeps the request searchable and allows deliberate retry', async ({ page }) => {
+  const state = await setup(page); state.seedRequest(); state.matches = []; state.rejectCreate = true;
+  await page.goto('/find?request=7');
+  await page.getByRole('button', { name: 'Create Group', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Unable to save group');
+  await expect(page.getByRole('button', { name: 'Create Group', exact: true })).toBeEnabled();
+  expect(state.requests[0].status).toBe('SEARCHING');
+  expect(state.groups).toHaveLength(2);
+ });
+
+ test('lost creation response reads MATCHED and never creates a second group', async ({ page }) => {
+  const state = await setup(page); state.seedRequest(); state.matches = []; state.loseCreateResponse = true;
+  await page.goto('/find?request=7');
+  await page.getByRole('button', { name: 'Create Group', exact: true }).click();
+  await expect(page.getByText('MATCHED — you’ve joined a group.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create Group', exact: true })).toHaveCount(0);
+  expect(state.groups).toHaveLength(3);
+  expect(state.calls.filter(c => c.path === '/api/pools/from-request/7')).toHaveLength(1);
  });

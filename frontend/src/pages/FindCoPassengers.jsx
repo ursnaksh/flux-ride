@@ -55,6 +55,7 @@ function RequestResults({ requestId }) {
   const [request, setRequest] = useState(null);
   const [matches, setMatches] = useState([]);
   const [joined, setJoined] = useState(null);
+  const [created, setCreated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(null);
   const [error, setError] = useState('');
@@ -105,6 +106,24 @@ function RequestResults({ requestId }) {
     } finally { pending.current = false; if (alive.current) setJoining(null); }
   }
 
+  async function createGroup() {
+    if (pending.current || loading || error || request?.status !== 'SEARCHING') return;
+    if (!isFuture(request.departureTime)) { await load(); return; }
+    pending.current = true; setJoining('create'); setJoinError('');
+    try {
+      const response = await axiosClient.post(`/api/pools/from-request/${request.id}`);
+      if (!alive.current) return;
+      setCreated(true);
+      setJoined(response.data);
+      setRequest(value => ({ ...value, status: 'MATCHED' }));
+      setMatches([]);
+    } catch (err) {
+      if (!alive.current) return;
+      setJoinError(`${err.message} Your request status has been checked again below.`);
+      await load();
+    } finally { pending.current = false; if (alive.current) setJoining(null); }
+  }
+
   return <div className="find-layout">
     <aside className="card plan-panel">
       <p className="eyebrow">01 / YOUR PLAN</p><h2>Your trip request</h2>
@@ -119,7 +138,7 @@ function RequestResults({ requestId }) {
         {!loading && request?.status === 'SEARCHING' && <button className="btn btn-ghost" onClick={load} disabled={joining !== null}>Refresh matches</button>}</div>
       {joinError && <p className="form-error" role="alert">{joinError}</p>}
       {loading ? <Loader label="Checking your request and compatible groups…" /> : error ? <div className="empty-state"><p className="form-error" role="alert">{error}</p><button className="btn btn-ghost" onClick={load}>Try again</button></div>
-        : request?.status === 'MATCHED' ? <div aria-live="polite"><div className="success-message"><strong>MATCHED — you’ve joined a group.</strong><p>Agree on your pickup, then arrange your cab or auto together.</p></div>
+        : request?.status === 'MATCHED' ? <div aria-live="polite"><div className="success-message"><strong>{created ? "Group created — you’re the first passenger." : "MATCHED — you’ve joined a group."}</strong><p>{created ? "Your request is MATCHED. Other compatible passengers can now find and join this group." : "Agree on your pickup, then arrange your cab or auto together."}</p></div>
           {joined && <PoolCard pool={joined} />}<Link to="/my-trips" className="btn btn-primary result-link">View my trips →</Link></div>
         : request && (request.status !== 'SEARCHING' || !isFuture(request.departureTime)) ? <div className="empty-state"><h3>This request is no longer available for matching.</h3><p>{request.status === 'SEARCHING' ? 'Its departure time has passed.' : `Its current status is ${request.status}.`}</p><Link className="btn btn-primary" to="/find">Plan a new trip</Link></div>
         : matches.length ? <><p className="results-caption">{matches.length} compatible {matches.length === 1 ? 'group' : 'groups'} · Best matches first</p><div className="match-list">{matches.map((match, index) => <article className="card match-card" key={match.sharedTripId}>
@@ -131,6 +150,14 @@ function RequestResults({ requestId }) {
                 {joining === match.sharedTripId ? 'Joining…' : 'Join Group →'}</button></div>
           </article>)}</div><p className="quiet-note">Scores compare destination, pickup similarity and timing. Availability is checked again when you join.</p></>
         : <div className="empty-state no-matches"><span className="discovery-symbol" aria-hidden="true">↗</span><h3>No compatible groups just yet.</h3><p>Your request is saved as SEARCHING. Check again later, or create a new request with different travel details.</p><p>FLUX RIDE won’t automatically join you to another group.</p><Link to="/my-trips" className="btn btn-ghost">View my requests</Link></div>}
+      {!loading && !error && request?.status === 'SEARCHING' && isFuture(request.departureTime) && <div className="card create-group-panel">
+        <h3>{matches.length ? 'Prefer to start your own group?' : 'Be the first to get a group going.'}</h3>
+        <p className="quiet-note">Create a new group with this pickup, destination and departure time. You’ll be its first passenger, and your request will become MATCHED. Others can find and join you.</p>
+        <button className="btn btn-primary" disabled={joining !== null} onClick={createGroup}>
+          {joining === 'create' ? 'Creating group…' : 'Create Group'}
+        </button>
+        <p className="quiet-note">This starts a group only. You’ll arrange transport separately.</p>
+      </div>}
     </section>
   </div>;
 }
