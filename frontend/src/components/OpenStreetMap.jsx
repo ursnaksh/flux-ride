@@ -152,7 +152,7 @@ function fitMap(map, points) {
   }
 }
 
-function SearchBox({ title, value, onSelect, onClear, placeholder }) {
+function SearchBox({ title, value, onSelect, onClear, placeholder, disabled = false }) {
   const [query, setQuery] = useState(value?.label || '');
   const [results, setResults] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -181,8 +181,8 @@ function SearchBox({ title, value, onSelect, onClear, placeholder }) {
   return <div className="map-search-block">
     <span className="map-search-label">{title}</span>
     <form className="map-search-row" onSubmit={search}>
-      <input value={query} onChange={event => setQuery(event.target.value)} placeholder={placeholder} />
-      <button className="btn btn-ghost" disabled={busy}>{busy ? 'Searching…' : 'Search'}</button>
+      <input value={query} onChange={event => setQuery(event.target.value)} placeholder={placeholder} disabled={disabled} />
+      <button className="btn btn-ghost" disabled={busy || disabled}>{busy ? 'Searching…' : disabled ? 'Locked' : 'Search'}</button>
     </form>
     {error && <p className="map-search-error">{error}</p>}
     {!!results.length && <div className="map-search-results">
@@ -192,7 +192,7 @@ function SearchBox({ title, value, onSelect, onClear, placeholder }) {
     </div>}
     {value && <div className="selected-place">
       <span>✓</span><p>{value.label}</p>
-      <button type="button" onClick={onClear} aria-label={`Clear ${title.toLowerCase()}`}>×</button>
+      {!disabled && <button type="button" onClick={onClear} aria-label={`Clear ${title.toLowerCase()}`}>×</button>}
     </div>}
   </div>;
 }
@@ -202,7 +202,8 @@ export function LocationMapPicker({
   destination,
   onPickupChange,
   onDestinationChange,
-  onRouteChange
+  onRouteChange,
+  destinationLocked = false
 }) {
   const container = useRef(null);
   const mapRef = useRef(null);
@@ -229,7 +230,7 @@ export function LocationMapPicker({
 
     if (kind === 'pickup') {
       onPickupChange(point);
-      if (!destination) setActiveTarget('destination');
+      if (!destination && !destinationLocked) setActiveTarget('destination');
     } else {
       onDestinationChange(point);
     }
@@ -261,10 +262,13 @@ export function LocationMapPicker({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const handleClick = event => setPoint(activeTarget, event.latlng.lat, event.latlng.lng);
+    const handleClick = event => {
+      const target = destinationLocked && activeTarget === 'destination' ? 'pickup' : activeTarget;
+      setPoint(target, event.latlng.lat, event.latlng.lng);
+    };
     map.on('click', handleClick);
     return () => map.off('click', handleClick);
-  }, [activeTarget, destination]);
+  }, [activeTarget, destination, destinationLocked]);
 
   useEffect(() => {
     const L = window.L;
@@ -370,7 +374,7 @@ export function LocationMapPicker({
       <SearchBox
         title="Pickup"
         value={pickup}
-        onSelect={value => { onPickupChange(value); if (!destination) setActiveTarget('destination'); }}
+        onSelect={value => { onPickupChange(value); if (!destination && !destinationLocked) setActiveTarget('destination'); }}
         onClear={() => onPickupChange(null)}
         placeholder="Search pickup, e.g. VIT Pune"
       />
@@ -380,17 +384,18 @@ export function LocationMapPicker({
         onSelect={onDestinationChange}
         onClear={() => onDestinationChange(null)}
         placeholder="Search destination, e.g. Pune Airport"
+        disabled={destinationLocked}
       />
     </div>
 
     <div className="map-tool-row">
       <div className="map-pin-mode" aria-label="Map pin selection mode">
         <button type="button" className={activeTarget === 'pickup' ? 'active' : ''} onClick={() => setActiveTarget('pickup')}>Pin pickup</button>
-        <button type="button" className={activeTarget === 'destination' ? 'active' : ''} onClick={() => setActiveTarget('destination')}>Pin destination</button>
+        <button type="button" className={activeTarget === 'destination' ? 'active' : ''} onClick={() => setActiveTarget('destination')} disabled={destinationLocked}>Pin destination</button>
       </div>
       <div className="map-secondary-tools">
         <button type="button" className="btn btn-ghost" onClick={useMyLocation} disabled={locating}>{locating ? 'Locating…' : '◎ Use my location'}</button>
-        <button type="button" className="btn btn-ghost" onClick={swapPoints} disabled={!pickup && !destination}>⇄ Swap</button>
+        <button type="button" className="btn btn-ghost" onClick={swapPoints} disabled={destinationLocked || (!pickup && !destination)}>⇄ Swap</button>
       </div>
     </div>
 
