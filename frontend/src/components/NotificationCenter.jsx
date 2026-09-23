@@ -114,7 +114,10 @@ export default function NotificationCenter() {
       aria-expanded={open}
       onClick={() => setOpen(value => !value)}
     >
-      <span aria-hidden="true">◔</span>
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="notification-icon">
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path>
+        <path d="M10 21h4"></path>
+      </svg>
       {count > 0 && <strong>{count > 9 ? '9+' : count}</strong>}
     </button>
 
