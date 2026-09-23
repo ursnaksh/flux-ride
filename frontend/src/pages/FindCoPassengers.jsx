@@ -190,8 +190,8 @@ function RequestForm({ useDailyCommute = false, inviteGroupId = null }) {
       </div>}
 
       <div className="booking-sheet-head">
-        <p className="eyebrow">PLAN YOUR RIDE</p>
-        <h2>{inviteGroupId ? 'Join from your pickup.' : 'Where are we going?'}</h2>
+        <p className="eyebrow">BUILD YOUR ROUTE</p>
+        <h2>{inviteGroupId ? 'Drop your pickup.' : 'Map it. Match it. Move.'}</h2>
         <p>{inviteGroupId
           ? 'Set your pickup and FLUX will check whether your route fits the invited group.'
           : 'Set the route, choose when you’re leaving, and FLUX will find people actually moving your way.'}</p>
@@ -265,7 +265,7 @@ function RequestForm({ useDailyCommute = false, inviteGroupId = null }) {
             ? 'Creating your route…'
             : inviteGroupId
               ? 'Check this invite →'
-              : 'Find people on my route →'}
+              : 'Find my best matches ↗'}
         </button>
       </form>
     </aside>
@@ -413,14 +413,14 @@ function RequestResults({ requestId }) {
             <ul className="match-reasons">{match.reasons.map(reason => <li key={reason}><span aria-hidden="true">✓</span> {reason}</li>)}</ul>
             <div className="match-bottom"><div><strong>{match.availableSeats} {match.availableSeats === 1 ? 'seat' : 'seats'} open</strong><span>{match.currentMembers}/4 already in · Group #{match.sharedTripId}</span></div>
               <button className="btn btn-primary" disabled={joining !== null || match.availableSeats <= 0} onClick={() => join(match.sharedTripId)} aria-label={`Join Group ${match.sharedTripId}`}>
-                {joining === match.sharedTripId ? 'Joining…' : 'Join Group →'}</button></div>
+                {joining === match.sharedTripId ? 'Joining…' : 'Join this group ↗'}</button></div>
           </article>)}</div><p className="quiet-note">New map-based trips are ranked by destination proximity, shared route, pickup detour and departure time. Older requests fall back to text matching.</p></>
         : <div className="empty-state no-matches"><span className="discovery-symbol" aria-hidden="true">↗</span><h3>No compatible groups just yet.</h3><p>Your request is saved as SEARCHING. Check again later, or create a new request with different travel details.</p><p>FLUX RIDE won’t automatically join you to another group.</p><Link to="/my-trips" className="btn btn-ghost">View my requests</Link></div>}
       {!loading && !error && request?.status === 'SEARCHING' && isFuture(request.departureTime) && <div className="card create-group-panel">
         <h3>{matches.length ? 'Prefer to start your own group?' : 'Be the first to get a group going.'}</h3>
         <p className="quiet-note">Create a new group with this pickup, destination and departure time. You’ll be its first passenger, and your request will become MATCHED. Others can find and join you.</p>
         <button className="btn btn-primary" disabled={joining !== null} onClick={createGroup}>
-          {joining === 'create' ? 'Creating group…' : 'Create Group'}
+          {joining === 'create' ? 'Creating group…' : 'Start my own group'}
         </button>
         <p className="quiet-note">This starts a group only. You’ll arrange transport separately.</p>
       </div>}
@@ -435,12 +435,14 @@ export default function FindCoPassengers() {
   const inviteGroupId = params.get('invite');
 
   return <div className={`page-container find-page ${requestId ? '' : 'find-page-map-first'}`}>
-    <div className="page-intro">
-      <p className="eyebrow">{inviteGroupId ? 'RIDE INVITE' : 'FIND YOUR PEOPLE'}</p>
-      <h1 className="page-title">{inviteGroupId ? 'Join the route.' : 'Move with people going your way.'}</h1>
+    <div className="page-intro next-find-intro">
+      <p className="eyebrow">{inviteGroupId ? 'RIDE INVITE' : requestId ? 'YOUR MATCHES' : 'FIND YOUR PEOPLE'}</p>
+      <h1 className="page-title">{inviteGroupId ? 'Join the route.' : requestId ? 'Pick the group that feels right.' : 'Your route already has people on it.'}</h1>
       <p className="page-subtitle">{inviteGroupId
         ? 'Choose your pickup. FLUX already knows the invited group’s destination and departure time.'
-        : 'Map your real route, see who overlaps with it, then choose your group.'}</p>
+        : requestId
+          ? 'Compare overlap, detour, timing and seats before you join.'
+          : 'Draw the real route. FLUX finds compatible people and explains why they match.'}</p>
     </div>
     {requestId
       ? <RequestResults key={requestId} requestId={requestId} />
