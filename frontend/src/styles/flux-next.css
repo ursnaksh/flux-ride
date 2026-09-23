@@ -2869,3 +2869,34 @@ a, button, input {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* pointer-reactive ambient light */
+.ambient-pointer-glow {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: .32;
+  background:
+    radial-gradient(
+      420px circle at var(--pointer-x, 50vw) var(--pointer-y, 30vh),
+      rgba(124,99,255,.12),
+      rgba(72,223,255,.035) 38%,
+      transparent 72%
+    );
+  transition: opacity .25s ease;
+}
+
+.next-find-intro .page-title {
+  max-width: 820px;
+}
+
+.next-find-intro .page-subtitle {
+  max-width: 680px;
+  line-height: 1.65;
+}
+
+@media (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .ambient-pointer-glow { display: none; }
+}
