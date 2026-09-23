@@ -3,49 +3,107 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import Loader from '../components/Loader';
 import PoolCard from '../components/PoolCard';
+import { LocationMapPicker } from '../components/OpenStreetMap';
 import { formatDeparture, isFuture, matchPercentage } from '../utils/trips';
+
+function distanceBetweenKm(first, second) {
+  if (!first || !second) return null;
+  const toRad = degrees => degrees * Math.PI / 180;
+  const earthRadiusKm = 6371;
+  const lat1 = toRad(first.lat);
+  const lat2 = toRad(second.lat);
+  const deltaLat = toRad(second.lat - first.lat);
+  const deltaLng = toRad(second.lng - first.lng);
+  const a = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+  const km = earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.max(0.1, Math.round(km * 10) / 10);
+}
 
 function RequestForm() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ pickup: '', drop: '', distanceKm: '', departureTime: '' });
+  const [pickup, setPickup] = useState(null);
+  const [destination, setDestination] = useState(null);
+  const [departureTime, setDepartureTime] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const pending = useRef(false);
-  function update(event) { setForm(value => ({ ...value, [event.target.name]: event.target.value })); }
+  const distanceKm = distanceBetweenKm(pickup, destination);
+
   async function submit(event) {
     event.preventDefault();
     if (pending.current) return;
-    if (!form.pickup.trim() || !form.drop.trim()) return setError('Enter both your pickup and destination.');
-    if (!Number.isFinite(Number(form.distanceKm)) || Number(form.distanceKm) <= 0) return setError('Enter a distance greater than zero.');
-    if (!isFuture(form.departureTime)) return setError('Choose a departure time in the future.');
-    pending.current = true; setBusy(true); setError('');
+    if (!pickup || !destination) return setError('Search and select both your pickup and destination on the map.');
+    if (!distanceKm) return setError('Choose two different locations.');
+    if (!isFuture(departureTime)) return setError('Choose a departure time in the future.');
+
+    pending.current = true;
+    setBusy(true);
+    setError('');
     try {
       const response = await axiosClient.post('/api/rides', {
         userId: Number(localStorage.getItem('flux_user_id')),
-        pickup: form.pickup.trim(), drop: form.drop.trim(), distanceKm: Number(form.distanceKm),
-        // LocalDateTime has no UTC offset: preserve the local wall-clock input.
-        departureTime: form.departureTime.length === 16 ? `${form.departureTime}:00` : form.departureTime
+        pickup: pickup.label,
+        drop: destination.label,
+        pickupLatitude: pickup.lat,
+        pickupLongitude: pickup.lng,
+        dropLatitude: destination.lat,
+        dropLongitude: destination.lng,
+        distanceKm,
+        departureTime: departureTime.length === 16 ? `${departureTime}:00` : departureTime
       });
       navigate(`/find?request=${response.data.id}`, { replace: true });
-    } catch (err) { setError(err.message); }
-    finally { pending.current = false; setBusy(false); }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
   }
-  return <div className="find-layout">
-    <section className="card plan-panel"><p className="eyebrow">01 / YOUR PLAN</p><h2>Where are you headed?</h2>
-      <p className="quiet-note">A few details help us find compatible groups.</p>
+
+  return <div className="find-layout map-find-layout">
+    <section className="card plan-panel map-plan-panel">
+      <p className="eyebrow">01 / YOUR ROUTE</p>
+      <h2>Plan the ride</h2>
+      <p className="quiet-note">Search and select both locations on the map, then choose when you want to leave.</p>
+
+      <div className="route-summary">
+        <div><small>FROM</small><strong>{pickup?.label || 'Choose pickup on map'}</strong></div>
+        <span aria-hidden="true">↓</span>
+        <div><small>TO</small><strong>{destination?.label || 'Choose destination on map'}</strong></div>
+      </div>
+
       <form className="form" onSubmit={submit}>
-        <label className="field"><span>Pickup location</span><input name="pickup" value={form.pickup} onChange={update} placeholder="VIT Main Road" required disabled={busy} /></label>
-        <label className="field"><span>Destination</span><input name="drop" value={form.drop} onChange={update} placeholder="Pune Airport" required disabled={busy} /></label>
-        <label className="field"><span>Departure date &amp; time</span><input name="departureTime" type="datetime-local" value={form.departureTime} onChange={update} required disabled={busy} /><small>Use local time for your journey.</small></label>
-        <label className="field"><span>Approximate distance (km)</span><input name="distanceKm" type="number" min="0.1" step="0.1" value={form.distanceKm} onChange={update} placeholder="12" required disabled={busy} /></label>
+        <label className="field">
+          <span>Departure date &amp; time</span>
+          <input type="datetime-local" value={departureTime} onChange={event => setDepartureTime(event.target.value)} required disabled={busy} />
+          <small>Use your local journey time.</small>
+        </label>
+
+        <div className="map-distance-card">
+          <span>Map distance estimate</span>
+          <strong>{distanceKm ? `${distanceKm} km` : 'Select both points'}</strong>
+          <small>Direct-distance estimate for matching and fare preview; road routing comes next.</small>
+        </div>
+
         {error && <p className="form-error" role="alert">{error}</p>}
-        <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Saving your request…' : 'Find compatible groups →'}</button>
-        <p className="quiet-note">This saves a trip request. You’ll choose a group in the next step.</p>
+        <button className="btn btn-primary btn-block" disabled={busy || !pickup || !destination}>
+          {busy ? 'Saving your request…' : 'Find Co-Passengers →'}
+        </button>
       </form>
     </section>
-    <section className="discovery-placeholder"><span className="discovery-symbol" aria-hidden="true">↗</span><p className="eyebrow">02 / YOUR COMPANY</p><h2>A shared direction.<br />A choice that’s yours.</h2><p>Your matches will appear here with compatibility scores, departure times and available seats.</p>
-      <div className="matching-factors"><span>Destination</span><span>Pickup similarity</span><span>Departure time</span></div>
-      <div className="choice-note"><strong>You’re in control.</strong><p>Compare the options. Join the group that suits you. Arrange transport together afterward.</p></div>
+
+    <section className="map-planner-panel">
+      <div className="section-heading">
+        <div><p className="eyebrow">02 / PICK ON THE MAP</p><h2>Where are you going?</h2></div>
+        <span className="map-live-badge">OPEN MAP</span>
+      </div>
+      <LocationMapPicker
+        pickup={pickup}
+        destination={destination}
+        onPickupChange={setPickup}
+        onDestinationChange={setDestination}
+      />
     </section>
   </div>;
 }
