@@ -990,3 +990,34 @@ h3 { line-height: 1.4; overflow-wrap: anywhere; }
   .map-search-row { flex-direction: column; }
   .map-search-row .btn { width: 100%; }
 }
+
+/* Advanced map controls */
+.map-tool-row { display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; }
+.map-pin-mode { display:flex; gap:6px; padding:4px; background:#eef0f4; border-radius:10px; border:1px solid #dde1e7; }
+.map-pin-mode button { border:0; background:transparent; color:#5f6674; font:inherit; font-size:12px; font-weight:650; padding:8px 10px; border-radius:7px; cursor:pointer; }
+.map-pin-mode button.active { background:#fff; color:var(--indigo); box-shadow:0 2px 8px #20244210; }
+.map-secondary-tools { display:flex; gap:8px; flex-wrap:wrap; }
+.map-secondary-tools .btn { min-height:38px; padding:7px 11px; font-size:12px; }
+.map-instruction { display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:#edf4ef; color:#526057; border:1px solid #d8e5db; padding:10px 12px; border-radius:10px; font-size:11px; }
+.map-instruction strong { color:#235a3f; }
+.osm-map-interactive { cursor:crosshair; }
+.flux-map-pin { width:34px; height:34px; border-radius:50% 50% 50% 8px; transform:rotate(-45deg); display:grid; place-items:center; color:#fff; font-size:11px; font-weight:800; border:3px solid #fff; box-shadow:0 5px 14px #1118273d; }
+.flux-map-pin::after { content:''; }
+.flux-map-pin-pickup { background:var(--teal); }
+.flux-map-pin-destination { background:var(--indigo); }
+.flux-map-pin-pickup, .flux-map-pin-destination { line-height:1; }
+.flux-map-pin-pickup::first-letter, .flux-map-pin-destination::first-letter { transform:rotate(45deg); }
+.flux-map-pin { text-indent:0; }
+.flux-map-pin { writing-mode:horizontal-tb; }
+.flux-map-pin { }
+.flux-map-pin-pickup, .flux-map-pin-destination { }
+.selected-place { position:relative; padding-right:24px; }
+.selected-place p { margin:0; flex:1; }
+.selected-place button { position:absolute; right:0; top:-2px; width:22px; height:22px; border:0; border-radius:50%; background:#f0f2f5; color:#646b78; cursor:pointer; font-size:16px; line-height:1; }
+.selected-place button:hover { background:#e2e5eb; }
+@media (max-width:700px) {
+  .map-tool-row { align-items:stretch; }
+  .map-pin-mode, .map-secondary-tools { width:100%; }
+  .map-pin-mode button { flex:1; }
+  .map-secondary-tools .btn { flex:1; }
+}
