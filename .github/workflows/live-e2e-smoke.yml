@@ -1,0 +1,238 @@
+name: Live E2E Smoke
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  live-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: API and routing smoke test
+        env:
+          FRONTEND: https://flux-ride.vercel.app
+          BACKEND: https://flux-ride-backend.onrender.com
+          ROUTER: https://router.project-osrm.org
+        run: |
+          python3 - <<'PY'
+          import json, os, re, time, urllib.request, urllib.error
+          from datetime import datetime, timedelta
+          from zoneinfo import ZoneInfo
+
+          FRONTEND=os.environ["FRONTEND"]
+          BACKEND=os.environ["BACKEND"]
+          ROUTER=os.environ["ROUTER"]
+          run_id=os.environ["GITHUB_RUN_ID"]
+
+          def fetch(url, method="GET", data=None, headers=None, retries=4):
+              headers=dict(headers or {})
+              if data is not None:
+                  body=json.dumps(data).encode()
+                  headers["Content-Type"]="application/json"
+              else:
+                  body=None
+              last=None
+              for attempt in range(retries):
+                  try:
+                      req=urllib.request.Request(url, data=body, method=method, headers=headers)
+                      with urllib.request.urlopen(req, timeout=45) as r:
+                          raw=r.read().decode("utf-8")
+                          return r.status, dict(r.headers), raw
+                  except Exception as e:
+                      last=e
+                      time.sleep(2 + attempt*2)
+              raise last
+
+          def api(path, method="GET", data=None, headers=None):
+              status, resp_headers, raw=fetch(BACKEND+path, method, data, headers)
+              parsed=json.loads(raw)
+              assert parsed.get("success") is True, (path, parsed)
+              return parsed.get("data"), resp_headers
+
+          def route(pickup, destination):
+              lng1,lat1=pickup
+              lng2,lat2=destination
+              url=f"{ROUTER}/route/v1/driving/{lng1},{lat1};{lng2},{lat2}?overview=full&geometries=geojson&steps=false"
+              _,_,raw=fetch(url)
+              data=json.loads(raw)
+              assert data.get("code")=="Ok" and data.get("routes"), data
+              r=data["routes"][0]
+              coords=r["geometry"]["coordinates"]
+              if len(coords)>80:
+                  sampled=[]
+                  step=(len(coords)-1)/79
+                  for i in range(80):
+                      sampled.append(coords[round(i*step)])
+                  coords=sampled
+              return {
+                  "distanceKm": round(r["distance"]/1000,1),
+                  "durationMinutes": max(1, round(r["duration"]/60)),
+                  "coordinates": coords,
+              }
+
+          # Production frontend is reachable and contains the newly deployed feature code.
+          status,_,html=fetch(FRONTEND+"/")
+          assert status==200
+          asset=re.search(r'src="(/assets/[^"]+\.js)"', html)
+          assert asset, html[:500]
+          _,_,bundle=fetch(FRONTEND+asset.group(1))
+          for token in [
+              "ROAD DISTANCE",
+              "EST. DRIVE",
+              "route overlap",
+              "pickup detour",
+              "READY CHECK",
+              "Suggested meeting point",
+              "Enable notifications",
+              "router.project-osrm.org",
+          ]:
+              assert token in bundle, f"Missing production bundle token: {token}"
+
+          # Public routing dependency returns a real road route.
+          pickup_a=(73.8150,18.4890)
+          pickup_b=(73.8210,18.4930)
+          destination=(73.8743,18.5289)
+          route_a=route(pickup_a,destination)
+          route_b=route(pickup_b,destination)
+          assert route_a["distanceKm"]>0 and route_a["durationMinutes"]>0
+
+          # Create isolated smoke users.
+          phone_a=f"smoke-a-{run_id}"
+          phone_b=f"smoke-b-{run_id}"
+          user_a,_=api("/api/users/register","POST",{"name":f"FLUX Smoke A {run_id}","phone":phone_a})
+          user_b,_=api("/api/users/register","POST",{"name":f"FLUX Smoke B {run_id}","phone":phone_b})
+
+          departure=(datetime.now(ZoneInfo("Asia/Kolkata"))+timedelta(days=1)).replace(microsecond=0,tzinfo=None).isoformat()
+          dest_label=f"FLUX Smoke Destination {run_id}"
+
+          def create_trip(user, pickup, route_data, pickup_label):
+              payload={
+                  "userId":user["id"],
+                  "pickup":pickup_label,
+                  "drop":dest_label,
+                  "pickupLatitude":pickup[1],
+                  "pickupLongitude":pickup[0],
+                  "dropLatitude":destination[1],
+                  "dropLongitude":destination[0],
+                  "routeGeometry":json.dumps(route_data["coordinates"],separators=(",",":")),
+                  "routeDurationMinutes":route_data["durationMinutes"],
+                  "distanceKm":route_data["distanceKm"],
+                  "departureTime":departure,
+              }
+              trip,_=api("/api/rides","POST",payload)
+              return trip
+
+          trip_a=create_trip(user_a,pickup_a,route_a,f"Smoke pickup A {run_id}")
+          trip_b=create_trip(user_b,pickup_b,route_b,f"Smoke pickup B {run_id}")
+
+          groups_a,_=api(f"/api/pools/user/{user_a['id']}")
+          group_a=next((g for g in groups_a if str(g.get("sourceTripRequestId"))==str(trip_a["id"])),None)
+          assert group_a, groups_a
+          assert group_a.get("routeGeometry"), group_a
+          assert group_a.get("routeDistanceKm"), group_a
+          assert group_a.get("routeDurationMinutes"), group_a
+
+          # New geographic matching must find A from B and expose route-quality metrics.
+          matches,_=api(f"/api/pools/matches/{trip_b['id']}")
+          match=next((m for m in matches if str(m["sharedTripId"])==str(group_a["id"])),None)
+          assert match, matches
+          assert match.get("routeOverlapScore",0) >= 0.25, match
+          assert match.get("estimatedDetourKm") is not None, match
+
+          joined,_=api(f"/api/pools/{group_a['id']}/join/{trip_b['id']}","POST")
+          assert len(joined.get("members",[]))==2, joined
+
+          # Owner request should also move to MATCHED after another passenger joins.
+          rides_a,_=api(f"/api/rides/user/{user_a['id']}")
+          owner_request=next(r for r in rides_a if r["id"]==trip_a["id"])
+          assert owner_request["status"]=="MATCHED", owner_request
+
+          # Ready flow: both passengers ready => group READY.
+          ready_a,_=api(f"/api/pools/{group_a['id']}/ready/{user_a['id']}?ready=true","POST")
+          ready_b,_=api(f"/api/pools/{group_a['id']}/ready/{user_b['id']}?ready=true","POST")
+          assert ready_b["status"]=="READY", ready_b
+          assert all(m.get("ready") is True for m in ready_b.get("members",[])), ready_b
+
+          # Chat is available to both members.
+          message=f"Smoke hello {run_id}"
+          sent,_=api(f"/api/pools/{group_a['id']}/messages","POST",{"userId":user_a["id"],"message":message})
+          messages,_=api(f"/api/pools/{group_a['id']}/messages?userId={user_b['id']}")
+          assert any(m.get("message")==message for m in messages), messages
+
+          # CORS from the production frontend is present.
+          _,cors_headers,_=fetch(
+              BACKEND+f"/api/pools/user/{user_a['id']}",
+              headers={"Origin":FRONTEND}
+          )
+          allow=cors_headers.get("Access-Control-Allow-Origin")
+          assert allow==FRONTEND, f"CORS header was {allow!r}"
+
+          with open(os.environ["GITHUB_ENV"],"a") as env:
+              env.write(f"SMOKE_PHONE_A={phone_a}\n")
+              env.write(f"SMOKE_GROUP_ID={group_a['id']}\n")
+              env.write(f"SMOKE_RUN_ID={run_id}\n")
+
+          print("API smoke passed")
+          print("route_a",route_a["distanceKm"],"km",route_a["durationMinutes"],"min")
+          print("match score",match["compatibilityScore"],"overlap",match["routeOverlapScore"],"detour",match["estimatedDetourKm"])
+          print("group",group_a["id"],"status",ready_b["status"])
+          PY
+
+      - name: Install Playwright
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Production browser smoke test
+        env:
+          FRONTEND: https://flux-ride.vercel.app
+        run: |
+          node <<'JS'
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext();
+            await context.grantPermissions(['notifications'], { origin: process.env.FRONTEND });
+            const page = await context.newPage();
+
+            await page.goto(process.env.FRONTEND + '/login', { waitUntil: 'networkidle', timeout: 60000 });
+            await page.getByRole('button', { name: 'Log in' }).click();
+            await page.getByPlaceholder('Your phone number').fill(process.env.SMOKE_PHONE_A);
+            await page.getByRole('button', { name: 'Log in →' }).click();
+            await page.waitForURL(process.env.FRONTEND + '/', { timeout: 60000 });
+
+            // New-trip map UI loads in the real browser.
+            await page.goto(process.env.FRONTEND + '/find', { waitUntil: 'networkidle', timeout: 60000 });
+            await page.locator('.leaflet-container').waitFor({ state: 'visible', timeout: 30000 });
+            await page.getByText('Pin pickup').waitFor();
+            await page.getByText('Pin destination').waitFor();
+            await page.getByText('Use my location').waitFor();
+
+            // The completed smoke group renders the group room, map, route, readiness and chat.
+            await page.goto(process.env.FRONTEND + '/groups/' + process.env.SMOKE_GROUP_ID, { waitUntil: 'networkidle', timeout: 60000 });
+            await page.getByRole('heading', { name: 'Group Room' }).waitFor();
+            await page.getByText('2/2 passengers ready').waitFor();
+            await page.getByText('Suggested meeting point', { exact: true }).waitFor();
+            await page.getByText('Coordinate your ride').waitFor();
+            await page.getByText('Smoke hello ' + process.env.SMOKE_RUN_ID).waitFor();
+            await page.getByText('Notifications on').waitFor();
+            await page.locator('.group-osm-map.leaflet-container').waitFor({ state: 'visible', timeout: 30000 });
+            const routePaths = await page.locator('.group-osm-map path.leaflet-interactive').count();
+            if (routePaths < 1) throw new Error('Group road route was not drawn on the map');
+
+            console.log('Browser smoke passed');
+            console.log('group route paths:', routePaths);
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          JS
