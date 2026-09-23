@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.flux.dto.ApiResponse;
+import com.flux.dto.InviteGroupSummary;
+import com.flux.dto.LiveLocationRequest;
+import com.flux.dto.LiveLocationView;
 import com.flux.dto.MatchResult;
 import com.flux.dto.PoolRequest;
 import com.flux.model.SharedTrip;
@@ -134,6 +137,60 @@ public class SharedTripController {
                 ApiResponse.success(
                         "User shared trips fetched",
                         sharedTrips
+                )
+        );
+    }
+
+
+    @GetMapping("/{sharedTripId}/invite")
+    public ResponseEntity<ApiResponse<InviteGroupSummary>> getInviteSummary(
+            @PathVariable Long sharedTripId) {
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Invite summary fetched",
+                        sharedTripService.getInviteSummary(sharedTripId)
+                )
+        );
+    }
+
+    @GetMapping("/{sharedTripId}/live-locations")
+    public ResponseEntity<ApiResponse<List<LiveLocationView>>> getLiveLocations(
+            @PathVariable Long sharedTripId,
+            @RequestParam Long userId) {
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Live locations fetched",
+                        sharedTripService.getLiveLocations(
+                                sharedTripId,
+                                userId
+                        )
+                )
+        );
+    }
+
+    @PostMapping("/{sharedTripId}/location/{userId}")
+    public ResponseEntity<ApiResponse<SharedTrip>> updateLiveLocation(
+            @PathVariable Long sharedTripId,
+            @PathVariable Long userId,
+            @Valid @RequestBody LiveLocationRequest request) {
+
+        SharedTrip sharedTrip =
+                sharedTripService.updateLiveLocation(
+                        sharedTripId,
+                        userId,
+                        Boolean.TRUE.equals(request.getSharing()),
+                        request.getLatitude(),
+                        request.getLongitude()
+                );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        Boolean.TRUE.equals(request.getSharing())
+                                ? "Live location updated"
+                                : "Live location sharing stopped",
+                        sharedTrip
                 )
         );
     }
