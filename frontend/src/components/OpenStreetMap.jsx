@@ -97,7 +97,7 @@ function reverseGeocode(lat, lng) {
 function pinIcon(L, kind) {
   return L.divIcon({
     className: '',
-    html: `<span class="flux-map-pin flux-map-pin-${kind}">${kind === 'pickup' ? 'P' : 'D'}</span>`,
+    html: `<span class="flux-map-pin flux-map-pin-${kind}"><span>${kind === 'pickup' ? 'P' : 'D'}</span></span>`,
     iconSize: [34, 42],
     iconAnchor: [17, 40],
     popupAnchor: [0, -38]
