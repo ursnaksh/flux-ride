@@ -14,6 +14,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
@@ -41,6 +42,13 @@ public class SharedTrip {
 
     private Double destinationLatitude;
     private Double destinationLongitude;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String routeGeometry;
+
+    private Double routeDistanceKm;
+    private Double routeDurationMinutes;
 
     /**
      * Planned departure time for this shared trip.
@@ -134,6 +142,30 @@ public class SharedTrip {
 
     public void setDestinationLongitude(Double destinationLongitude) {
         this.destinationLongitude = destinationLongitude;
+    }
+
+    public String getRouteGeometry() {
+        return routeGeometry;
+    }
+
+    public void setRouteGeometry(String routeGeometry) {
+        this.routeGeometry = routeGeometry;
+    }
+
+    public Double getRouteDistanceKm() {
+        return routeDistanceKm;
+    }
+
+    public void setRouteDistanceKm(Double routeDistanceKm) {
+        this.routeDistanceKm = routeDistanceKm;
+    }
+
+    public Double getRouteDurationMinutes() {
+        return routeDurationMinutes;
+    }
+
+    public void setRouteDurationMinutes(Double routeDurationMinutes) {
+        this.routeDurationMinutes = routeDurationMinutes;
     }
 
     public LocalDateTime getDepartureTime() {
