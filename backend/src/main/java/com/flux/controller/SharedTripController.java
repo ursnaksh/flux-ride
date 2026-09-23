@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.flux.dto.ApiResponse;
 import com.flux.dto.MatchResult;
@@ -133,6 +134,29 @@ public class SharedTripController {
                 ApiResponse.success(
                         "User shared trips fetched",
                         sharedTrips
+                )
+        );
+    }
+
+    @PostMapping("/{sharedTripId}/ready/{userId}")
+    public ResponseEntity<ApiResponse<SharedTrip>> updateReady(
+            @PathVariable Long sharedTripId,
+            @PathVariable Long userId,
+            @RequestParam boolean ready) {
+
+        SharedTrip sharedTrip =
+                sharedTripService.updateReady(
+                        sharedTripId,
+                        userId,
+                        ready
+                );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        ready
+                                ? "Passenger marked ready"
+                                : "Passenger marked not ready",
+                        sharedTrip
                 )
         );
     }
