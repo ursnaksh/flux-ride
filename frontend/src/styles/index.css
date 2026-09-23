@@ -1023,3 +1023,153 @@ h3 { line-height: 1.4; overflow-wrap: anywhere; }
 }
 
 .flux-map-pin > span { transform:rotate(45deg); display:block; }
+
+/* Route intelligence, readiness and group coordination */
+.road-route-summary {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.road-route-summary > div,
+.group-route-stats span {
+  background:#fff;
+  border:1px solid #e1e5eb;
+  border-radius:10px;
+  padding:10px 12px;
+}
+.road-route-summary span,
+.group-route-stats span {
+  font-size:10px;
+  color:#727987;
+  letter-spacing:.08em;
+}
+.road-route-summary strong,
+.group-route-stats strong {
+  display:block;
+  margin-top:4px;
+  color:#2f3745;
+  font-size:16px;
+}
+.route-loading {
+  font-size:11px;
+  color:#646b78;
+}
+.route-match-metrics {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:14px 0 4px;
+}
+.route-match-metrics span {
+  background:#f2f5f2;
+  border:1px solid #dde6df;
+  border-radius:9px;
+  padding:8px 10px;
+  color:#59645d;
+  font-size:11px;
+}
+.route-match-metrics strong { color:#285a40; }
+.flux-map-pin-meeting { background:#d97706; }
+
+.member-copy { flex:1; min-width:0; }
+.member-name-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.ready-pill {
+  display:inline-flex;
+  align-items:center;
+  padding:3px 7px;
+  border-radius:999px;
+  font-size:9px !important;
+  font-weight:750;
+  background:#f2f3f5;
+  color:#777d88 !important;
+  white-space:nowrap;
+}
+.ready-pill.is-ready {
+  background:#dff3e6;
+  color:#22613e !important;
+}
+.ready-panel {
+  margin-top:20px;
+  border-top:1px solid #e5e8ee;
+  padding-top:18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+.ready-panel > div { min-width:0; }
+.ready-panel > div > strong {
+  font-size:14px;
+  color:#303849;
+}
+.ready-panel > div > p:last-child {
+  color:#6b7280;
+  font-size:11px;
+  line-height:1.5;
+  margin-top:5px;
+}
+.ready-panel .eyebrow { margin-bottom:4px; }
+
+.group-room-actions {
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.notification-enabled {
+  font-size:11px;
+  color:#23633d;
+  background:#e2f3e8;
+  border:1px solid #cce6d5;
+  padding:8px 10px;
+  border-radius:999px;
+}
+.group-route-stats {
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:14px;
+}
+.group-route-stats span {
+  flex:1;
+  min-width:120px;
+}
+.meeting-suggestion {
+  display:flex;
+  gap:12px;
+  margin-top:14px;
+  padding:13px;
+  background:#fff8e8;
+  border:1px solid #f0dfb9;
+  border-radius:12px;
+}
+.meeting-marker {
+  flex:0 0 28px;
+  height:28px;
+  border-radius:50%;
+  background:#d97706;
+  color:white;
+  display:grid;
+  place-items:center;
+  font-size:11px;
+  font-weight:800;
+}
+.meeting-suggestion strong { font-size:12px; }
+.meeting-suggestion p {
+  margin-top:4px;
+  color:#6d6455;
+  font-size:11px;
+  line-height:1.55;
+}
+@media (max-width:700px) {
+  .road-route-summary { grid-template-columns:1fr; }
+  .ready-panel { align-items:stretch; flex-direction:column; }
+  .ready-panel .btn { width:100%; }
+  .group-room-actions { justify-content:flex-start; }
+}
