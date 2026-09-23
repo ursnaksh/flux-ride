@@ -267,26 +267,30 @@ public class SharedTripService {
         return savedTrip;
     }
 
-    /** Creates a new group only when the passenger explicitly chooses to do so. */
     @Transactional
-    public SharedTrip createFromRequest(Long tripRequestId) {
-        TripRequest request = getSearchingRequestForUpdate(tripRequestId);
-        User user = userService.getById(request.getUserId());
+    public SharedTrip ensureGroupForRequest(TripRequest request) {
+        Optional<SharedTrip> existing = sharedTripRepository.findBySourceTripRequestId(request.getId());
+        if (existing.isPresent()) return existing.get();
 
+        User user = userService.getById(request.getUserId());
         SharedTrip group = new SharedTrip();
         group.setDestination(normalize(request.getDrop()));
         group.setDestinationLabel(request.getDrop().trim());
         group.setDepartureTime(request.getDepartureTime());
         group.setTotalFare(request.getFare());
         group.setStatus(SharedTrip.SharedTripStatus.FORMING);
-        group.getMembers().add(new SharedTripMember(
-                group, user.getId(), user.getName(), request.getPickup()
-        ));
+        group.setSourceTripRequestId(request.getId());
+        group.getMembers().add(new SharedTripMember(group, user.getId(), user.getName(), request.getPickup()));
+        return sharedTripRepository.save(group);
+    }
 
-        SharedTrip savedGroup = sharedTripRepository.save(group);
+    @Transactional
+    public SharedTrip createFromRequest(Long tripRequestId) {
+        TripRequest request = getSearchingRequestForUpdate(tripRequestId);
+        SharedTrip group = ensureGroupForRequest(request);
         request.setStatus(TripRequest.TripRequestStatus.MATCHED);
         tripRequestRepository.save(request);
-        return savedGroup;
+        return group;
     }
 
     // Both create and explicit join lock the same request before reading its state.
