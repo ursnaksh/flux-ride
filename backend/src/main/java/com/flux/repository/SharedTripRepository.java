@@ -1,6 +1,7 @@
 package com.flux.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -25,6 +26,8 @@ public interface SharedTripRepository
     List<SharedTrip> findSharedTripsByMemberUserId(
             @Param("userId") Long userId
     );
+
+    Optional<SharedTrip> findBySourceTripRequestId(Long sourceTripRequestId);
 
     long countByStatus(
             SharedTrip.SharedTripStatus status
