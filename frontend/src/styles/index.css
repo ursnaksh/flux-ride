@@ -948,3 +948,45 @@ h3 { line-height: 1.4; overflow-wrap: anywhere; }
   .group-room-layout { grid-template-columns: 1fr; }
   .group-room-map-preview { position: static; min-height: 250px; }
 }
+
+/* Map-first trip planning */
+.map-find-layout { grid-template-columns: 350px minmax(0, 1fr); }
+.map-planner-panel { min-width: 0; }
+.map-live-badge { font-size: 10px; font-weight: 750; letter-spacing: .12em; color: #22623f; background: #e4f3e9; padding: 7px 9px; border-radius: 999px; }
+.location-picker { display: grid; gap: 16px; }
+.location-searches { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.map-search-block { position: relative; background: #fff; border: 1px solid #e3e5ec; border-radius: 14px; padding: 14px; box-shadow: 0 4px 20px #15233704; }
+.map-search-label { display: block; font-size: 10px; font-weight: 750; letter-spacing: .12em; color: #5b6270; margin-bottom: 8px; text-transform: uppercase; }
+.map-search-row { display: flex; gap: 8px; }
+.map-search-row input { flex: 1; min-width: 0; border: 1px solid var(--gray-200); border-radius: 10px; padding: 11px 12px; font-size: 13px; }
+.map-search-row input:focus { outline: none; border-color: var(--indigo); }
+.map-search-row .btn { min-height: 40px; padding: 8px 12px; }
+.map-search-error { color: var(--danger); font-size: 11px; margin-top: 8px; }
+.map-search-results { position: absolute; left: 14px; right: 14px; top: calc(100% - 4px); z-index: 550; background: white; border: 1px solid #dfe3ea; border-radius: 12px; box-shadow: var(--shadow-lift); overflow: hidden; max-height: 240px; overflow-y: auto; }
+.map-search-results button { width: 100%; border: 0; border-bottom: 1px solid #eef0f3; background: white; text-align: left; padding: 11px 12px; cursor: pointer; color: #3f4653; }
+.map-search-results button:last-child { border-bottom: 0; }
+.map-search-results button:hover { background: #f5f6fb; }
+.map-search-results span { display: block; font-size: 12px; line-height: 1.45; }
+.selected-place { display: flex; gap: 6px; align-items: flex-start; color: #446052; font-size: 11px; line-height: 1.45; margin-top: 9px; max-height: 34px; overflow: hidden; }
+.selected-place span { color: #168052; font-weight: 700; }
+.osm-map { height: 430px; width: 100%; border-radius: 18px; border: 1px solid #dce1e7; overflow: hidden; background: #e9edf1; z-index: 0; }
+.map-credit-note { color: #73798a; font-size: 10px; line-height: 1.5; }
+.map-distance-card { border: 1px solid #e1e4ea; background: #f8f9fb; border-radius: 12px; padding: 13px; display: grid; gap: 4px; }
+.map-distance-card span { font-size: 10px; color: #73798a; text-transform: uppercase; letter-spacing: .08em; }
+.map-distance-card strong { font-size: 18px; color: #2f3745; }
+.map-distance-card small { color: #7a808d; line-height: 1.5; }
+.group-room-map-preview .group-osm-map { height: 300px; margin-top: 16px; }
+.group-room-map-preview > p:last-child { margin-top: 12px; }
+.map-empty-state { background: #ffffffb8; border: 1px dashed #cfd5de; padding: 18px; border-radius: 12px; margin-top: 16px; }
+.map-empty-state strong { font-size: 13px; }
+.map-empty-state p { color: #656b78; font-size: 12px; line-height: 1.6; margin-top: 7px; }
+@media (max-width: 900px) {
+  .location-searches { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .map-find-layout { grid-template-columns: 1fr; }
+  .map-planner-panel { order: -1; }
+  .osm-map { height: 340px; }
+  .map-search-row { flex-direction: column; }
+  .map-search-row .btn { width: 100%; }
+}
