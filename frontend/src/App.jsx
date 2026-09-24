@@ -6,6 +6,7 @@ import MyRides from './pages/MyRides.jsx';
 import Login from './pages/Login.jsx';
 import GroupRoom from './pages/GroupRoom.jsx';
 import InviteGroup from './pages/InviteGroup.jsx';
+import Profile from './pages/Profile.jsx';
 import AmbientGlow from './components/AmbientGlow.jsx';
 
 function RequireUser() {
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/my-trips" element={<MyRides />} />
           <Route path="/groups/:groupId" element={<GroupRoom />} />
           <Route path="/invite/:groupId" element={<InviteGroup />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/book" element={<Navigate to="/find" replace />} />
           <Route path="/pool" element={<Navigate to="/find" replace />} />
           <Route path="/my-rides" element={<Navigate to="/my-trips" replace />} />
