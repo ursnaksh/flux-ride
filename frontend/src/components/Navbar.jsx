@@ -5,9 +5,10 @@ export default function Navbar() {
   const navigate = useNavigate();
   const name = localStorage.getItem('flux_user_name');
   const signedIn = localStorage.getItem('flux_role') === 'USER' && Number(localStorage.getItem('flux_user_id')) > 0;
+  const verified = localStorage.getItem('flux_phone_verified') === 'true';
 
   function logout() {
-    ['flux_user_id', 'flux_user_name', 'flux_role', 'flux_driver_id'].forEach(key => localStorage.removeItem(key));
+    ['flux_user_id', 'flux_user_name', 'flux_role', 'flux_driver_id', 'flux_phone_verified'].forEach(key => localStorage.removeItem(key));
     navigate('/login');
   }
 
@@ -36,6 +37,7 @@ export default function Navbar() {
         <div className="flux-user-chip">
           <span className="flux-user-avatar">{(name?.trim()?.[0] || 'F').toUpperCase()}</span>
           <span>{name?.split(' ')[0] || 'there'}</span>
+          {verified && <span className="nav-verified-badge" title="Phone verified" aria-label="Phone verified">✓</span>}
         </div>
         <button className="btn btn-ghost nav-logout" onClick={logout}>Log out</button>
       </> : <Link className="btn btn-primary nav-cta" to="/login">Get started <span>↗</span></Link>}</div>
