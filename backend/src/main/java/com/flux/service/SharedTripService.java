@@ -384,7 +384,10 @@ public class SharedTripService {
             Long userId,
             boolean sharing,
             Double latitude,
-            Double longitude) {
+            Double longitude,
+            Double accuracyMeters,
+            Double speedMetersPerSecond,
+            Double headingDegrees) {
 
         SharedTrip sharedTrip = getById(sharedTripId);
 
@@ -403,6 +406,9 @@ public class SharedTripService {
             member.setLiveLatitude(null);
             member.setLiveLongitude(null);
             member.setLiveLocationUpdatedAt(null);
+            member.setLiveAccuracyMeters(null);
+            member.setLiveSpeedMetersPerSecond(null);
+            member.setLiveHeadingDegrees(null);
             return sharedTripRepository.save(sharedTrip);
         }
 
@@ -419,6 +425,15 @@ public class SharedTripService {
         member.setLiveLocationSharing(true);
         member.setLiveLatitude(latitude);
         member.setLiveLongitude(longitude);
+        member.setLiveAccuracyMeters(
+                sanitizeNonNegative(accuracyMeters)
+        );
+        member.setLiveSpeedMetersPerSecond(
+                sanitizeNonNegative(speedMetersPerSecond)
+        );
+        member.setLiveHeadingDegrees(
+                sanitizeHeading(headingDegrees)
+        );
         member.setLiveLocationUpdatedAt(LocalDateTime.now());
 
         return sharedTripRepository.save(sharedTrip);
@@ -456,6 +471,9 @@ public class SharedTripService {
                         member.getUserName(),
                         member.getLiveLatitude(),
                         member.getLiveLongitude(),
+                        member.getLiveAccuracyMeters(),
+                        member.getLiveSpeedMetersPerSecond(),
+                        member.getLiveHeadingDegrees(),
                         member.getLiveLocationUpdatedAt()
                 ))
                 .toList();
