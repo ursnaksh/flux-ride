@@ -106,7 +106,10 @@ export default function PoolCard({ pool, onPoolChange }) {
         </span>
         <div className="member-copy">
           <div className="member-name-row">
-            <strong>{Number(member.userId) === userId ? `${member.userName} (You)` : member.userName}</strong>
+            <strong>
+              {Number(member.userId) === userId ? `${member.userName} (You)` : member.userName}
+              {member.verified && <span className="member-verified-badge" title="Phone verified" aria-label="Phone verified">✓ Verified</span>}
+            </strong>
             <span className={`ready-pill ${member.ready ? 'is-ready' : ''}`}>
               {member.ready ? 'Ready' : 'Not ready'}
             </span>
