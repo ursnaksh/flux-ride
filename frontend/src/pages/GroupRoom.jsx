@@ -5,6 +5,7 @@ import Loader from '../components/Loader';
 import PoolCard from '../components/PoolCard';
 import InviteShareCard from '../components/InviteShareCard';
 import { GroupMap, resolveMeetingPlace } from '../components/OpenStreetMap';
+import useRideLiveLocation from '../hooks/useRideLiveLocation';
 
 function suggestedMeetingPoint(group) {
   const pickups = (group?.members || [])
@@ -76,6 +77,57 @@ function distanceKm(first, second) {
   return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+
+function locationAgeLabel(updatedAt, now) {
+  if (!updatedAt) return 'Updating…';
+  const ageSeconds = Math.max(
+    0,
+    Math.round((now - new Date(updatedAt).getTime()) / 1000)
+  );
+
+  if (!Number.isFinite(ageSeconds) || ageSeconds < 8) return 'Just now';
+  if (ageSeconds < 60) return `${ageSeconds}s ago`;
+  return `${Math.floor(ageSeconds / 60)}m ago`;
+}
+
+function locationQuality(accuracyMeters) {
+  if (!Number.isFinite(accuracyMeters)) {
+    return { label: 'GPS', tone: 'unknown' };
+  }
+  if (accuracyMeters <= 20) {
+    return { label: `±${Math.round(accuracyMeters)} m`, tone: 'good' };
+  }
+  if (accuracyMeters <= 60) {
+    return { label: `±${Math.round(accuracyMeters)} m`, tone: 'okay' };
+  }
+  return { label: `±${Math.round(accuracyMeters)} m`, tone: 'weak' };
+}
+
+function movementLabel(speedMetersPerSecond) {
+  if (!Number.isFinite(speedMetersPerSecond) || speedMetersPerSecond < 0.5) {
+    return null;
+  }
+  return `${Math.round(speedMetersPerSecond * 3.6)} km/h`;
+}
+
+function etaAtCurrentSpeed(distance, speedMetersPerSecond) {
+  if (
+    !Number.isFinite(distance)
+    || !Number.isFinite(speedMetersPerSecond)
+    || speedMetersPerSecond < 0.6
+  ) {
+    return null;
+  }
+
+  const minutes = Math.ceil(
+    (distance * 1000) / speedMetersPerSecond / 60
+  );
+
+  if (minutes < 1) return '<1 min';
+  if (minutes > 120) return null;
+  return `~${minutes} min`;
+}
+
 export default function GroupRoom() {
   const { groupId } = useParams();
   const userId = Number(localStorage.getItem('flux_user_id'));
@@ -87,19 +139,28 @@ export default function GroupRoom() {
   const [meetingLookup, setMeetingLookup] = useState(false);
   const [copyState, setCopyState] = useState('');
   const [showInvite, setShowInvite] = useState(false);
-  const [liveSharing, setLiveSharing] = useState(false);
-  const [liveLocations, setLiveLocations] = useState([]);
-  const [liveError, setLiveError] = useState('');
+  const [focusLiveUserId, setFocusLiveUserId] = useState(null);
   const [notificationPermission, setNotificationPermission] = useState(
     typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
   );
 
   const previousMemberCount = useRef(null);
-  const watchId = useRef(null);
-  const lastLiveSentAt = useRef(0);
+
+  const {
+    liveLocations,
+    sharing: liveSharing,
+    starting: liveStarting,
+    error: liveError,
+    start: startLiveLocation,
+    stop: stopLiveLocation
+  } = useRideLiveLocation({
+    groupId,
+    userId,
+    userName: localStorage.getItem('flux_user_name') || 'You'
+  });
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    const timer = window.setInterval(() => setNow(Date.now()), 5000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -145,34 +206,6 @@ export default function GroupRoom() {
       window.clearInterval(timer);
     };
   }, [groupId, userId]);
-
-  useEffect(() => {
-    let alive = true;
-
-    async function loadLiveLocations() {
-      try {
-        const response = await axiosClient.get(`/api/pools/${groupId}/live-locations?userId=${userId}`);
-        if (alive) setLiveLocations(response.data || []);
-      } catch (_) {
-        if (alive) setLiveLocations([]);
-      }
-    }
-
-    loadLiveLocations();
-    const timer = window.setInterval(loadLiveLocations, 5000);
-
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, [groupId, userId]);
-
-  useEffect(() => () => {
-    if (watchId.current != null && navigator.geolocation) {
-      navigator.geolocation.clearWatch(watchId.current);
-      watchId.current = null;
-    }
-  }, []);
 
   const rawMeetingPoint = useMemo(() => suggestedMeetingPoint(group), [group]);
 
@@ -231,74 +264,6 @@ export default function GroupRoom() {
     }
   }
 
-  function startLiveLocation() {
-    if (!navigator.geolocation || watchId.current != null) {
-      if (!navigator.geolocation) setLiveError('Live location is not supported by this browser.');
-      return;
-    }
-
-    setLiveError('');
-
-    watchId.current = navigator.geolocation.watchPosition(
-      async position => {
-        const nowMs = Date.now();
-        if (nowMs - lastLiveSentAt.current < 8000) return;
-        lastLiveSentAt.current = nowMs;
-
-        try {
-          await axiosClient.post(`/api/pools/${groupId}/location/${userId}`, {
-            sharing: true,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
-          setLiveSharing(true);
-          setLiveError('');
-        } catch (err) {
-          setLiveError(err.message);
-        }
-      },
-      locationError => {
-        setLiveSharing(false);
-        setLiveError(
-          locationError.code === 1
-            ? 'Location permission was denied. You can turn it on later from your browser settings.'
-            : 'Your live location could not be read right now.'
-        );
-        if (watchId.current != null) {
-          navigator.geolocation.clearWatch(watchId.current);
-          watchId.current = null;
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 5000,
-        timeout: 15000
-      }
-    );
-  }
-
-  async function stopLiveLocation() {
-    if (watchId.current != null && navigator.geolocation) {
-      navigator.geolocation.clearWatch(watchId.current);
-      watchId.current = null;
-    }
-
-    setLiveSharing(false);
-    lastLiveSentAt.current = 0;
-
-    try {
-      await axiosClient.post(`/api/pools/${groupId}/location/${userId}`, {
-        sharing: false,
-        latitude: null,
-        longitude: null
-      });
-      setLiveLocations(current => current.filter(item => Number(item.userId) !== userId));
-      setLiveError('');
-    } catch (err) {
-      setLiveError(err.message);
-    }
-  }
-
   const members = group?.members || [];
   const readyCount = members.filter(member => member.ready).length;
   const countdown = countdownLabel(group?.departureTime, now);
@@ -316,6 +281,43 @@ export default function GroupRoom() {
     ? `https://www.openstreetmap.org/?mlat=${meetingPoint.lat}&mlon=${meetingPoint.lng}#map=18/${meetingPoint.lat}/${meetingPoint.lng}`
     : null;
 
+  const liveDetails = liveLocations.map(item => {
+    const away = meetingPoint
+      ? distanceKm(
+          { lat: item.latitude, lng: item.longitude },
+          { lat: meetingPoint.lat, lng: meetingPoint.lng }
+        )
+      : null;
+
+    return {
+      ...item,
+      away,
+      ageLabel: locationAgeLabel(item.updatedAt, now),
+      quality: locationQuality(item.accuracyMeters),
+      movement: movementLabel(item.speedMetersPerSecond),
+      eta: etaAtCurrentSpeed(away, item.speedMetersPerSecond)
+    };
+  });
+
+  const nearMeetingCount = liveDetails.filter(
+    item => item.away != null && item.away <= 0.2
+  ).length;
+
+  const everyoneSharing =
+    members.length > 1 && liveDetails.length === members.length;
+
+  const everyoneNear =
+    everyoneSharing
+    && meetingPoint
+    && liveDetails.every(
+      item => item.away != null && item.away <= 0.2
+    );
+
+  const missingLiveCount = Math.max(
+    0,
+    members.length - liveDetails.length
+  );
+
   return <>
     <div className={`page-container group-room-page ${tripMode ? 'trip-mode-active' : ''}`}>
       <div className="group-room-header">
@@ -332,9 +334,15 @@ export default function GroupRoom() {
         <div className="group-room-actions">
           {group && <button className="btn btn-ghost" onClick={() => setShowInvite(true)}>Invite people</button>}
           {members.length > 1 && !liveSharing &&
-            <button className="btn btn-ghost live-location-button" onClick={startLiveLocation}>Share live location</button>}
+            <button
+              className="btn btn-ghost live-location-button"
+              onClick={startLiveLocation}
+              disabled={liveStarting}
+            >
+              {liveStarting ? 'Finding GPS…' : '◎ Share live location'}
+            </button>}
           {liveSharing &&
-            <button className="btn btn-ghost live-location-button is-sharing" onClick={stopLiveLocation}>● Stop live sharing</button>}
+            <button className="btn btn-ghost live-location-button is-sharing" onClick={stopLiveLocation}>● Live location on</button>}
           {notificationPermission !== 'unsupported' && notificationPermission !== 'granted' &&
             <button className="btn btn-ghost" onClick={enableNotifications}>Enable notifications</button>}
           {notificationPermission === 'granted' &&
@@ -378,6 +386,25 @@ export default function GroupRoom() {
               {group.routeDurationMinutes && <span><strong>{Math.round(group.routeDurationMinutes)} min</strong> estimated drive</span>}
             </div>}
 
+            {liveDetails.length > 0 && <div className={`live-coordination-status ${everyoneNear ? 'everyone-near' : ''}`}>
+              <span className="live-status-orb">◎</span>
+              <div>
+                <strong>
+                  {everyoneNear
+                    ? 'Everyone is near the meeting point'
+                    : meetingPoint
+                      ? `${nearMeetingCount}/${liveDetails.length} live passenger${liveDetails.length === 1 ? '' : 's'} within 200 m`
+                      : `${liveDetails.length} passenger${liveDetails.length === 1 ? '' : 's'} sharing live`}
+                </strong>
+                <small>
+                  {missingLiveCount > 0
+                    ? `${missingLiveCount} passenger${missingLiveCount === 1 ? ' is' : 's are'} not sharing live location.`
+                    : 'All passengers are sharing live location.'}
+                </small>
+              </div>
+              {focusLiveUserId && <button type="button" onClick={() => setFocusLiveUserId(null)}>Show overview</button>}
+            </div>}
+
             {Number.isFinite(group.destinationLatitude) && Number.isFinite(group.destinationLongitude)
               ? <GroupMap
                   destination={{
@@ -389,27 +416,48 @@ export default function GroupRoom() {
                   routeGeometry={group.routeGeometry}
                   meetingPoint={meetingPoint}
                   liveLocations={liveLocations}
+                  currentUserId={userId}
+                  focusLiveUserId={focusLiveUserId}
                 />
               : <div className="map-empty-state">
                   <strong>Map coordinates aren’t available for this older trip.</strong>
                   <p>New trips created with the map picker show passenger pickups and the road route here.</p>
                 </div>}
 
-            {liveLocations.length > 0 && <div className="live-location-strip">
-              {liveLocations.map(item => {
-                const away = meetingPoint
-                  ? distanceKm(
-                      { lat: item.latitude, lng: item.longitude },
-                      { lat: meetingPoint.lat, lng: meetingPoint.lng }
-                    )
-                  : null;
-                return <div key={item.userId}>
-                  <span className="live-avatar-dot"></span>
-                  <div>
-                    <strong>{Number(item.userId) === userId ? 'You' : item.userName}</strong>
-                    <small>{away != null ? `${away < 1 ? Math.round(away * 1000) + ' m' : away.toFixed(1) + ' km'} from meeting point` : 'sharing live'}</small>
+            {liveDetails.length > 0 && <div className="live-location-strip live-location-cards">
+              {liveDetails.map(item => {
+                const distanceLabel = item.away != null
+                  ? item.away < 1
+                    ? `${Math.round(item.away * 1000)} m from meeting point`
+                    : `${item.away.toFixed(1)} km from meeting point`
+                  : 'Sharing live location';
+
+                return <button
+                  type="button"
+                  className={`live-location-card ${Number(focusLiveUserId) === Number(item.userId) ? 'is-focused' : ''}`}
+                  key={item.userId}
+                  onClick={() => setFocusLiveUserId(
+                    Number(focusLiveUserId) === Number(item.userId)
+                      ? null
+                      : item.userId
+                  )}
+                >
+                  <span className="live-person-avatar">
+                    {Number(item.userId) === userId
+                      ? 'YOU'
+                      : (item.userName || '?').slice(0, 2).toUpperCase()}
+                    <i></i>
+                  </span>
+                  <div className="live-person-copy">
+                    <div>
+                      <strong>{Number(item.userId) === userId ? 'You' : item.userName}</strong>
+                      <span className={`live-quality live-quality-${item.quality.tone}`}>{item.quality.label}</span>
+                    </div>
+                    <small>{distanceLabel}{item.eta ? ` · ${item.eta} at current speed` : ''}</small>
+                    <em>{item.ageLabel}{item.movement ? ` · ${item.movement}` : ''}</em>
                   </div>
-                </div>;
+                  <b>{Number(focusLiveUserId) === Number(item.userId) ? 'Following' : 'Follow'}</b>
+                </button>;
               })}
             </div>}
 
@@ -426,7 +474,7 @@ export default function GroupRoom() {
             </div>}
 
             <p className="map-privacy-note">
-              Live location is opt-in and visible only to members of this group. If updates stop, FLUX hides the position after about two minutes.
+              Live location is opt-in and visible only to members of this ride. FLUX shows GPS accuracy and update age, and automatically hides positions that stop updating for about two minutes.
             </p>
           </section>
 
