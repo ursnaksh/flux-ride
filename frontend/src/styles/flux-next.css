@@ -4018,3 +4018,14 @@ body,
     min-height: 0;
   }
 }
+
+
+#live-map,
+#meeting-point,
+#coordination {
+  scroll-margin-top: 100px;
+}
+
+.group-coordination-anchor {
+  min-width: 0;
+}
