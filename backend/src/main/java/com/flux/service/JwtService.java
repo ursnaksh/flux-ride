@@ -8,6 +8,8 @@ import com.flux.model.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
@@ -23,13 +25,15 @@ public class JwtService {
             @Value("${auth.jwt.secret}") String secret,
             @Value("${auth.jwt.ttl-hours:168}") long ttlHours) {
 
-        if (secret == null || secret.length() < 32) {
+        if (secret == null || secret.isBlank()) {
             throw new IllegalStateException(
-                    "JWT secret must be at least 32 characters long"
+                    "JWT signing secret is required"
             );
         }
 
-        this.algorithm = Algorithm.HMAC256(secret);
+        this.algorithm = Algorithm.HMAC256(
+                deriveSigningKey(secret)
+        );
         this.verifier = JWT.require(algorithm)
                 .withIssuer("flux-ride")
                 .build();
