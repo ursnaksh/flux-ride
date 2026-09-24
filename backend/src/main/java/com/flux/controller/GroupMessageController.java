@@ -3,6 +3,7 @@ package com.flux.controller;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.flux.chat.RideChatWebSocketHandler;
 import com.flux.dto.ApiResponse;
 import com.flux.dto.GroupMessageRequest;
 import com.flux.model.GroupMessage;
@@ -19,9 +20,17 @@ public class GroupMessageController {
     private final GroupMessageRepository messages;
     private final SharedTripService trips;
     private final UserService users;
+    private final RideChatWebSocketHandler chatSocket;
 
-    public GroupMessageController(GroupMessageRepository messages, SharedTripService trips, UserService users) {
-        this.messages=messages; this.trips=trips; this.users=users;
+    public GroupMessageController(
+            GroupMessageRepository messages,
+            SharedTripService trips,
+            UserService users,
+            RideChatWebSocketHandler chatSocket) {
+        this.messages = messages;
+        this.trips = trips;
+        this.users = users;
+        this.chatSocket = chatSocket;
     }
 
     private SharedTrip requireMember(Long tripId, Long userId) {
@@ -42,7 +51,16 @@ public class GroupMessageController {
         requireMember(sharedTripId,request.getUserId());
         User user=users.getById(request.getUserId());
         GroupMessage m=new GroupMessage();
-        m.setSharedTripId(sharedTripId); m.setUserId(user.getId()); m.setUserName(user.getName()); m.setMessage(request.getMessage().trim());
-        return ResponseEntity.ok(ApiResponse.success("Message sent", messages.save(m)));
+        m.setSharedTripId(sharedTripId);
+        m.setUserId(user.getId());
+        m.setUserName(user.getName());
+        m.setMessage(request.getMessage().trim());
+
+        GroupMessage saved = messages.save(m);
+        chatSocket.broadcastMessage(saved);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Message sent", saved)
+        );
     }
 }
