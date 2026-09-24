@@ -10,8 +10,10 @@ import com.flux.model.GroupMessage;
 import com.flux.model.SharedTrip;
 import com.flux.model.User;
 import com.flux.repository.GroupMessageRepository;
+import com.flux.security.AuthContext;
 import com.flux.service.SharedTripService;
 import com.flux.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
@@ -41,15 +43,37 @@ public class GroupMessageController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<GroupMessage>>> list(@PathVariable Long sharedTripId, @RequestParam Long userId) {
-        requireMember(sharedTripId,userId);
-        return ResponseEntity.ok(ApiResponse.success("Group messages fetched", messages.findBySharedTripIdOrderByCreatedAtAsc(sharedTripId)));
+    public ResponseEntity<ApiResponse<List<GroupMessage>>> list(
+            HttpServletRequest request,
+            @PathVariable Long sharedTripId,
+            @RequestParam(required = false) Long userId) {
+
+        Long authenticatedUserId =
+                AuthContext.requireUserId(request);
+
+        requireMember(sharedTripId, authenticatedUserId);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Group messages fetched",
+                        messages.findBySharedTripIdOrderByCreatedAtAsc(
+                                sharedTripId
+                        )
+                )
+        );
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<GroupMessage>> send(@PathVariable Long sharedTripId, @Valid @RequestBody GroupMessageRequest request) {
-        requireMember(sharedTripId,request.getUserId());
-        User user=users.getById(request.getUserId());
+    public ResponseEntity<ApiResponse<GroupMessage>> send(
+            HttpServletRequest httpRequest,
+            @PathVariable Long sharedTripId,
+            @Valid @RequestBody GroupMessageRequest request) {
+
+        Long authenticatedUserId =
+                AuthContext.requireUserId(httpRequest);
+
+        requireMember(sharedTripId, authenticatedUserId);
+        User user = users.getById(authenticatedUserId);
         GroupMessage m=new GroupMessage();
         m.setSharedTripId(sharedTripId);
         m.setUserId(user.getId());
