@@ -40,10 +40,14 @@ function countdownLabel(departureTime, now = Date.now()) {
 function chooseActiveMatch(groups = []) {
   const active = groups
     .filter(group =>
-      (group.members?.length || 0) > 1
+      (group.members?.length || 0) > 0
       && !['COMPLETED', 'CANCELLED'].includes(group.status)
     )
     .sort((a, b) => {
+      const aMatched = (a.members?.length || 0) > 1 ? 1 : 0;
+      const bMatched = (b.members?.length || 0) > 1 ? 1 : 0;
+      if (aMatched !== bMatched) return bMatched - aMatched;
+
       const aTime = new Date(a.departureTime || 0).getTime();
       const bTime = new Date(b.departureTime || 0).getTime();
       return aTime - bTime;
@@ -52,10 +56,29 @@ function chooseActiveMatch(groups = []) {
   return active[0] || null;
 }
 
+function choosePendingRequest(requests = [], activeGroup = null) {
+  const activeSourceId = activeGroup?.sourceTripRequestId != null
+    ? String(activeGroup.sourceTripRequestId)
+    : null;
+
+  return requests
+    .filter(request =>
+      request.status === 'SEARCHING'
+      && String(request.id) !== activeSourceId
+      && new Date(request.departureTime || 0).getTime() > Date.now()
+    )
+    .sort((a, b) =>
+      new Date(a.departureTime || 0).getTime()
+      - new Date(b.departureTime || 0).getTime()
+    )[0] || null;
+}
+
 export default function Home() {
   const [count, setCount] = useState(null);
   const [commute, setCommute] = useState(loadCommute);
   const [activeMatch, setActiveMatch] = useState(null);
+  const [pendingRequest, setPendingRequest] = useState(null);
+  const [pendingMatchCount, setPendingMatchCount] = useState(null);
   const [readyBusy, setReadyBusy] = useState(false);
   const [copyState, setCopyState] = useState('');
   const [now, setNow] = useState(Date.now());
@@ -100,24 +123,63 @@ export default function Home() {
     if (!userId) return undefined;
     let alive = true;
 
-    async function loadGroups() {
+    async function loadTripState() {
       try {
-        const response = await axiosClient.get(`/api/pools/user/${userId}`);
+        const [groupsResponse, requestsResponse] = await Promise.all([
+          axiosClient.get(`/api/pools/user/${userId}`),
+          axiosClient.get(`/api/rides/user/${userId}`)
+        ]);
+
         if (!alive) return;
-        setActiveMatch(chooseActiveMatch(response.data || []));
+
+        const group = chooseActiveMatch(groupsResponse.data || []);
+        const request = choosePendingRequest(requestsResponse.data || [], group);
+
+        setActiveMatch(group);
+        setPendingRequest(request);
       } catch (_) {
-        if (alive) setActiveMatch(null);
+        if (!alive) return;
+        setActiveMatch(null);
+        setPendingRequest(null);
       }
     }
 
-    loadGroups();
-    const timer = window.setInterval(loadGroups, 5000);
+    loadTripState();
+    const timer = window.setInterval(loadTripState, 5000);
 
     return () => {
       alive = false;
       window.clearInterval(timer);
     };
   }, [userId]);
+
+  useEffect(() => {
+    if (!pendingRequest?.id || activeMatch) {
+      setPendingMatchCount(null);
+      return undefined;
+    }
+
+    let alive = true;
+
+    async function loadPendingMatches() {
+      try {
+        const response = await axiosClient.get(
+          `/api/pools/matches/${pendingRequest.id}`
+        );
+        if (alive) setPendingMatchCount((response.data || []).length);
+      } catch (_) {
+        if (alive) setPendingMatchCount(null);
+      }
+    }
+
+    loadPendingMatches();
+    const timer = window.setInterval(loadPendingMatches, 10000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [pendingRequest?.id, activeMatch]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
@@ -189,12 +251,13 @@ export default function Home() {
   }, [chatOpen, activeMatch?.id, latestChatId, userId]);
 
   const members = activeMatch?.members || [];
+  const hasMatchedPassengers = members.length > 1;
   const currentMember = members.find(member => Number(member.userId) === userId);
   const readyCount = members.filter(member => member.ready).length;
   const otherMembers = members.filter(member => Number(member.userId) !== userId);
 
   const matchTitle = useMemo(() => {
-    if (!otherMembers.length) return 'Your group';
+    if (!otherMembers.length) return 'Your group is open';
     if (otherMembers.length === 1) return `Matched with ${otherMembers[0].userName}`;
     return `Matched with ${otherMembers[0].userName} + ${otherMembers.length - 1}`;
   }, [otherMembers]);
@@ -264,9 +327,9 @@ export default function Home() {
         <div>
           <div className="home-match-live-pill">
             <span></span>
-            ACTIVE MATCH
+            {hasMatchedPassengers ? 'ACTIVE MATCH' : 'GROUP OPEN'}
           </div>
-          <p className="eyebrow">YOUR RIDE IS NOW ON HOME</p>
+          <p className="eyebrow">{hasMatchedPassengers ? 'YOUR RIDE IS NOW ON HOME' : 'WAITING FOR CO-PASSENGERS'}</p>
           <h1>{matchTitle}</h1>
           <p className="home-match-route">
             <span>→</span>
@@ -383,11 +446,13 @@ export default function Home() {
       {liveError && <p className="form-error home-live-error">{liveError}</p>}
 
       <p className="home-match-note">
-        Everything for this match is now reachable from Home. Use the Ride Hub when you want the full map, meeting point and group chat together.
+        {hasMatchedPassengers
+          ? 'Everything for this match is now reachable from Home. Use the Ride Hub when you want the full map, meeting point and group chat together.'
+          : 'Your group is live and discoverable by compatible passengers. Keep this page open or come back later — Home will update as soon as someone joins.'}
       </p>
     </section>}
 
-    {activeMatch && <section className="home-next-steps" aria-label="What to do next">
+    {activeMatch && hasMatchedPassengers && <section className="home-next-steps" aria-label="What to do next">
       <div className="home-next-step-head">
         <div>
           <p className="eyebrow">WHAT TO DO NEXT</p>
@@ -420,7 +485,51 @@ export default function Home() {
       </div>
     </section>}
 
-    {!activeMatch && <section className="next-hero">
+    {!activeMatch && pendingRequest && <section className="home-searching-trip" aria-live="polite">
+      <div className="home-searching-trip-glow" aria-hidden="true"></div>
+      <div className="home-searching-trip-main">
+        <div className="home-searching-state">
+          <span className="home-searching-pulse"></span>
+          SEARCHING
+        </div>
+        <p className="eyebrow">YOUR ACTIVE REQUEST</p>
+        <h1>{shortPlace(pendingRequest.drop)}</h1>
+        <div className="home-searching-route">
+          <div>
+            <small>FROM</small>
+            <strong>{shortPlace(pendingRequest.pickup)}</strong>
+          </div>
+          <span>→</span>
+          <div>
+            <small>TO</small>
+            <strong>{shortPlace(pendingRequest.drop)}</strong>
+          </div>
+        </div>
+        <div className="home-searching-actions">
+          <Link to={`/find?request=${pendingRequest.id}`} className="btn next-primary-btn">
+            {pendingMatchCount > 0
+              ? `View ${pendingMatchCount} compatible ${pendingMatchCount === 1 ? 'group' : 'groups'}`
+              : 'Check for matches'}
+            <span>↗</span>
+          </Link>
+          <Link to="/my-trips" className="btn next-secondary-btn">Trip details →</Link>
+        </div>
+      </div>
+      <div className="home-searching-trip-side">
+        <small>{formatDeparture(pendingRequest.departureTime)}</small>
+        <strong>{countdownLabel(pendingRequest.departureTime, now)}</strong>
+        <span>
+          {pendingMatchCount == null
+            ? 'Checking the network…'
+            : pendingMatchCount > 0
+              ? `${pendingMatchCount} compatible ${pendingMatchCount === 1 ? 'group' : 'groups'} found`
+              : 'No compatible group yet'}
+        </span>
+        <p>FLUX keeps this request pinned here until you join a group or the trip expires.</p>
+      </div>
+    </section>}
+
+        {!activeMatch && !pendingRequest && <section className="next-hero">
       <div className="next-hero-aurora aurora-one" aria-hidden="true"></div>
       <div className="next-hero-aurora aurora-two" aria-hidden="true"></div>
       <div className="next-hero-grain" aria-hidden="true"></div>
