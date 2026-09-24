@@ -145,6 +145,7 @@ public class SharedTripService {
                             user.getName(),
                             request.getPickup().trim()
                     );
+            member.setVerified(user.isPhoneVerified());
 
             sharedTrip.getMembers().add(member);
         }
@@ -250,6 +251,7 @@ public class SharedTripService {
                         tripRequest.getPickupLatitude(),
                         tripRequest.getPickupLongitude()
                 );
+        member.setVerified(user.isPhoneVerified());
 
         sharedTrip.getMembers().add(member);
 
@@ -298,14 +300,16 @@ public class SharedTripService {
         group.setTotalFare(request.getFare());
         group.setStatus(SharedTrip.SharedTripStatus.FORMING);
         group.setSourceTripRequestId(request.getId());
-        group.getMembers().add(new SharedTripMember(
+        SharedTripMember creator = new SharedTripMember(
                 group,
                 user.getId(),
                 user.getName(),
                 request.getPickup(),
                 request.getPickupLatitude(),
                 request.getPickupLongitude()
-        ));
+        );
+        creator.setVerified(user.isPhoneVerified());
+        group.getMembers().add(creator);
         return sharedTripRepository.save(group);
     }
 
