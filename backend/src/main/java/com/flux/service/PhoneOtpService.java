@@ -49,6 +49,9 @@ public class PhoneOtpService {
     @Value("${auth.otp.msg91.template-id:}")
     private String templateId;
 
+    @Value("${auth.otp.firebase.api-key:}")
+    private String firebaseApiKey;
+
     @Value("${auth.otp.expiry-minutes:5}")
     private int expiryMinutes;
 
@@ -76,11 +79,25 @@ public class PhoneOtpService {
         return otpEnabled && "demo".equalsIgnoreCase(provider);
     }
 
+    public boolean isFirebaseMode() {
+        return otpEnabled && "firebase".equalsIgnoreCase(provider);
+    }
+
+    public String getChannel() {
+        if (isDemoMode()) return "demo";
+        if (isFirebaseMode()) return "firebase";
+        return "sms";
+    }
+
     public boolean isAvailable() {
         if (!otpEnabled) return false;
 
         if (isDemoMode()) {
             return true;
+        }
+
+        if (isFirebaseMode()) {
+            return firebaseApiKey != null && !firebaseApiKey.isBlank();
         }
 
         return authKey != null && !authKey.isBlank()
@@ -140,6 +157,12 @@ public class PhoneOtpService {
             return createDemoOtp(phone);
         }
 
+        if (isFirebaseMode()) {
+            throw new IllegalArgumentException(
+                    "Firebase sends the SMS from the web client."
+            );
+        }
+
         String mobile = phone.substring(1);
         String url = "https://control.msg91.com/api/v5/otp"
                 + "?template_id=" + encode(templateId)
@@ -183,6 +206,12 @@ public class PhoneOtpService {
             return;
         }
 
+        if (isFirebaseMode()) {
+            throw new IllegalArgumentException(
+                    "Firebase verification is completed with an ID token."
+            );
+        }
+
         String mobile = phone.substring(1);
         String url = "https://control.msg91.com/api/v5/otp/verify"
                 + "?otp=" + encode(cleanOtp)
@@ -204,6 +233,97 @@ public class PhoneOtpService {
         if (!verified) {
             throw new IllegalArgumentException(
                     "That code is invalid or expired. Request a new OTP and try again."
+            );
+        }
+    }
+
+    public void verifyFirebaseIdToken(
+            String rawPhone,
+            String idToken) {
+
+        if (!otpEnabled || !isFirebaseMode()) {
+            throw new IllegalArgumentException(
+                    "Firebase phone verification is not enabled."
+            );
+        }
+
+        if (firebaseApiKey == null || firebaseApiKey.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Firebase phone verification is temporarily unavailable."
+            );
+        }
+
+        String expectedPhone = normalizePhone(rawPhone);
+        String cleanToken = idToken == null ? "" : idToken.trim();
+
+        if (cleanToken.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Firebase verification token is required."
+            );
+        }
+
+        String url =
+                "https://identitytoolkit.googleapis.com/v1/accounts:lookup"
+                        + "?key=" + encode(firebaseApiKey);
+
+        try {
+            String body = objectMapper.createObjectNode()
+                    .put("idToken", cleanToken)
+                    .toString();
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(12))
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> response =
+                    httpClient.send(
+                            request,
+                            HttpResponse.BodyHandlers.ofString()
+                    );
+
+            if (response.statusCode() < 200
+                    || response.statusCode() >= 300) {
+                throw new IllegalArgumentException(
+                        "Firebase verification is invalid or expired."
+                );
+            }
+
+            JsonNode payload = objectMapper.readTree(response.body());
+            JsonNode users = payload.path("users");
+
+            if (!users.isArray() || users.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Firebase could not verify this phone number."
+                );
+            }
+
+            JsonNode verifiedUser = users.get(0);
+
+            if (verifiedUser.path("disabled").asBoolean(false)) {
+                throw new IllegalArgumentException(
+                        "This Firebase account is disabled."
+                );
+            }
+
+            String verifiedPhone =
+                    verifiedUser.path("phoneNumber").asText("");
+
+            if (verifiedPhone.isBlank()
+                    || !normalizePhone(verifiedPhone)
+                            .equals(expectedPhone)) {
+                throw new IllegalArgumentException(
+                        "The verified phone number does not match."
+                );
+            }
+        } catch (IllegalArgumentException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalArgumentException(
+                    "Firebase verification is temporarily unavailable."
             );
         }
     }
