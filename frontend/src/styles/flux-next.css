@@ -5370,3 +5370,39 @@ body,
     display: none;
   }
 }
+
+
+/* ==========================================================
+   OTP DEMO FALLBACK
+   ========================================================== */
+
+.otp-demo-card {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 2px;
+  padding: 12px 13px;
+  border: 1px solid rgba(217,255,120,.14);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(217,255,120,.06), rgba(124,99,255,.035));
+}
+
+.otp-demo-card > span {
+  color: #B7D865;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+
+.otp-demo-card > strong {
+  color: #F0FFD0;
+  font-size: 22px;
+  letter-spacing: .18em;
+}
+
+.otp-demo-card > p {
+  color: #7E876B;
+  font-size: 7.5px;
+  line-height: 1.5;
+}
+
