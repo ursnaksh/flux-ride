@@ -87,7 +87,7 @@ export default function MyRides() {
       :
         groups.length ?
           <div className="pool-grid next-pool-grid">{groups.map(group => <div className="group-summary-card next-group-card" key={group.id}>
-            <PoolCard pool={group} />
+            <PoolCard pool={group} showChat={false} />
             <Link to={'/groups/' + group.id} className="btn next-primary-btn btn-block open-group-btn">Open Group Room <span>↗</span></Link>
           </div>)}</div> :
           <div className="empty-state next-empty-state"><span className="empty-orb">✦</span><h2>No shared groups yet.</h2><p>Once you join a compatible group, it’ll show up here.</p><Link to="/find" className="btn next-primary-btn">Find a compatible route</Link></div>}
