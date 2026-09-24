@@ -76,6 +76,8 @@ export default function Home() {
 
   const name = localStorage.getItem('flux_user_name') || 'there';
   const userId = Number(localStorage.getItem('flux_user_id'));
+  const studentVerified =
+    localStorage.getItem('flux_student_verified') === 'true';
 
   useEffect(() => {
     const controller = new AbortController();
@@ -348,6 +350,15 @@ export default function Home() {
       </div>
     </div>}
 
+    {!studentVerified && <Link to="/profile" className="home-trust-nudge">
+      <span>V</span>
+      <div>
+        <strong>Verify your VIT student profile</strong>
+        <small>Add a student badge so co-passengers know you belong to the campus community.</small>
+      </div>
+      <b>Verify →</b>
+    </Link>}
+
     {activeMatch && <section className="home-match-hub">
       <div className="home-match-glow" aria-hidden="true"></div>
 
@@ -380,7 +391,11 @@ export default function Home() {
           <div>
             <strong>{Number(member.userId) === userId ? 'You' : member.userName}</strong>
             <small>
-              {member.verified ? '✓ Verified · ' : ''}
+              {member.studentVerified
+                ? 'VIT ✓ · '
+                : member.verified
+                  ? 'Phone ✓ · '
+                  : ''}
               {member.ready ? 'Ready' : 'Not ready'}
             </small>
           </div>
