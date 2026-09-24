@@ -58,11 +58,37 @@ export default function Login() {
     setError('');
   }
 
-  function finishLogin(user) {
+  function finishLogin(payload) {
+    const user = payload?.user || payload;
+
+    if (!user?.id || !payload?.token) {
+      setError('FLUX could not create a secure session. Please try again.');
+      return;
+    }
+
+    localStorage.setItem('flux_auth_token', payload.token);
+    localStorage.setItem(
+      'flux_auth_expires_at',
+      String(payload.expiresAtEpochSeconds || '')
+    );
     localStorage.setItem('flux_user_id', user.id);
     localStorage.setItem('flux_user_name', user.name);
     localStorage.setItem('flux_role', 'USER');
-    localStorage.setItem('flux_phone_verified', String(Boolean(user.phoneVerified)));
+    localStorage.setItem(
+      'flux_phone_verified',
+      String(Boolean(user.phoneVerified))
+    );
+    localStorage.setItem(
+      'flux_student_verified',
+      String(Boolean(user.studentVerified))
+    );
+
+    if (user.studentEmail) {
+      localStorage.setItem('flux_student_email', user.studentEmail);
+    } else {
+      localStorage.removeItem('flux_student_email');
+    }
+
     localStorage.removeItem('flux_driver_id');
 
     const next = params.get('next');
