@@ -11,10 +11,12 @@ export default function Login() {
   const [otp, setOtp] = useState('');
   const [otpStage, setOtpStage] = useState('details');
   const [maskedPhone, setMaskedPhone] = useState('');
+  const [demoCode, setDemoCode] = useState('');
   const [resendIn, setResendIn] = useState(0);
   const [authConfig, setAuthConfig] = useState({
     otpRequired: false,
     otpAvailable: false,
+    demoMode: false,
     codeLength: 6,
     resendAfterSeconds: 30
   });
@@ -54,6 +56,7 @@ export default function Login() {
     setOtp('');
     setOtpStage('details');
     setMaskedPhone('');
+    setDemoCode('');
     setResendIn(0);
     setError('');
   }
@@ -124,6 +127,7 @@ export default function Login() {
       });
 
       setMaskedPhone(response.data.maskedPhone || phone.trim());
+      setDemoCode(response.data.demoCode || '');
       setResendIn(response.data.resendAfterSeconds || authConfig.resendAfterSeconds || 30);
       setOtp('');
       setOtpStage('otp');
@@ -290,6 +294,12 @@ export default function Login() {
               <button type="button" onClick={() => resetVerification(mode)} disabled={loading}>Change</button>
             </div>
 
+            {authConfig.demoMode && demoCode && <div className="otp-demo-card">
+              <span>DEMO OTP</span>
+              <strong>{demoCode}</strong>
+              <p>This code is shown only because the real SMS provider is not connected yet. The OTP flow is mandatory, but this is not real phone ownership verification.</p>
+            </div>}
+
             <label className="field next-field otp-field">
               <span>{authConfig.codeLength || 6}-digit OTP</span>
               <input
@@ -338,7 +348,9 @@ export default function Login() {
         <div className="auth-security-note">
           <span className={authConfig.otpRequired ? 'is-on' : ''}>✓</span>
           <p>{authConfig.otpRequired
-            ? 'Phone verification protects your account and gives other passengers a verified-user signal.'
+            ? authConfig.demoMode
+              ? 'OTP is mandatory in demo mode right now. Connect the SMS provider to turn this into real phone ownership verification.'
+              : 'Phone verification protects your account and gives other passengers a verified-user signal.'
             : 'FLUX helps you find co-passengers. Transport booking remains separate.'}</p>
         </div>
       </div>
