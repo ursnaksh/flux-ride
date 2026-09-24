@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import RideChat from '../components/RideChat';
+import useRideLiveLocation from '../hooks/useRideLiveLocation';
 import { formatDeparture } from '../utils/trips';
 
 const COMMUTE_KEY = 'flux_daily_commute';
@@ -55,9 +56,6 @@ export default function Home() {
   const [count, setCount] = useState(null);
   const [commute, setCommute] = useState(loadCommute);
   const [activeMatch, setActiveMatch] = useState(null);
-  const [liveLocations, setLiveLocations] = useState([]);
-  const [liveSharing, setLiveSharing] = useState(false);
-  const [liveError, setLiveError] = useState('');
   const [readyBusy, setReadyBusy] = useState(false);
   const [copyState, setCopyState] = useState('');
   const [now, setNow] = useState(Date.now());
@@ -71,13 +69,24 @@ export default function Home() {
   const [chatUnread, setChatUnread] = useState(0);
   const [latestChatId, setLatestChatId] = useState(null);
 
-  const liveWatch = useRef(null);
-  const lastLiveSentAt = useRef(0);
-
   const name = localStorage.getItem('flux_user_name') || 'there';
   const userId = Number(localStorage.getItem('flux_user_id'));
   const studentVerified =
     localStorage.getItem('flux_student_verified') === 'true';
+
+  const {
+    liveLocations,
+    sharing: liveSharing,
+    starting: liveStarting,
+    error: liveError,
+    ownLocation,
+    start: startLiveLocation,
+    stop: stopLiveLocation
+  } = useRideLiveLocation({
+    groupId: activeMatch?.id,
+    userId,
+    userName: name
+  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -109,34 +118,6 @@ export default function Home() {
       window.clearInterval(timer);
     };
   }, [userId]);
-
-  useEffect(() => {
-    if (!activeMatch?.id || !userId) {
-      setLiveLocations([]);
-      return undefined;
-    }
-
-    let alive = true;
-
-    async function loadLive() {
-      try {
-        const response = await axiosClient.get(
-          `/api/pools/${activeMatch.id}/live-locations?userId=${userId}`
-        );
-        if (alive) setLiveLocations(response.data || []);
-      } catch (_) {
-        if (alive) setLiveLocations([]);
-      }
-    }
-
-    loadLive();
-    const timer = window.setInterval(loadLive, 5000);
-
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, [activeMatch?.id, userId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
@@ -207,13 +188,6 @@ export default function Home() {
     setChatUnread(0);
   }, [chatOpen, activeMatch?.id, latestChatId, userId]);
 
-  useEffect(() => () => {
-    if (liveWatch.current != null && navigator.geolocation) {
-      navigator.geolocation.clearWatch(liveWatch.current);
-      liveWatch.current = null;
-    }
-  }, []);
-
   const members = activeMatch?.members || [];
   const currentMember = members.find(member => Number(member.userId) === userId);
   const readyCount = members.filter(member => member.ready).length;
@@ -243,82 +217,6 @@ export default function Home() {
       // Group polling will retry and keep the latest server state.
     } finally {
       setReadyBusy(false);
-    }
-  }
-
-  function startLiveLocation() {
-    if (!activeMatch || !navigator.geolocation || liveWatch.current != null) {
-      if (!navigator.geolocation) {
-        setLiveError('Live location is not supported by this browser.');
-      }
-      return;
-    }
-
-    setLiveError('');
-
-    liveWatch.current = navigator.geolocation.watchPosition(
-      async position => {
-        const nowMs = Date.now();
-        if (nowMs - lastLiveSentAt.current < 8000) return;
-        lastLiveSentAt.current = nowMs;
-
-        try {
-          await axiosClient.post(
-            `/api/pools/${activeMatch.id}/location/${userId}`,
-            {
-              sharing: true,
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude
-            }
-          );
-          setLiveSharing(true);
-          setLiveError('');
-        } catch (err) {
-          setLiveError(err.message);
-        }
-      },
-      error => {
-        setLiveSharing(false);
-        setLiveError(
-          error.code === 1
-            ? 'Location permission was denied. Allow location access in your browser to share live.'
-            : 'Your live location could not be read right now.'
-        );
-        if (liveWatch.current != null) {
-          navigator.geolocation.clearWatch(liveWatch.current);
-          liveWatch.current = null;
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 5000,
-        timeout: 15000
-      }
-    );
-  }
-
-  async function stopLiveLocation() {
-    if (!activeMatch) return;
-
-    if (liveWatch.current != null && navigator.geolocation) {
-      navigator.geolocation.clearWatch(liveWatch.current);
-      liveWatch.current = null;
-    }
-
-    setLiveSharing(false);
-    lastLiveSentAt.current = 0;
-
-    try {
-      await axiosClient.post(
-        `/api/pools/${activeMatch.id}/location/${userId}`,
-        { sharing: false, latitude: null, longitude: null }
-      );
-      setLiveLocations(current =>
-        current.filter(item => Number(item.userId) !== userId)
-      );
-      setLiveError('');
-    } catch (err) {
-      setLiveError(err.message);
     }
   }
 
@@ -431,11 +329,28 @@ export default function Home() {
           </div>
         </button>
 
-        <button type="button" className={`home-feature-action ${liveSharing ? 'is-live' : ''}`} onClick={liveSharing ? stopLiveLocation : startLiveLocation}>
+        <button
+          type="button"
+          className={`home-feature-action ${liveSharing ? 'is-live' : ''}`}
+          onClick={liveSharing ? stopLiveLocation : startLiveLocation}
+          disabled={liveStarting}
+        >
           <span className="home-feature-icon">◎</span>
           <div>
-            <strong>{liveSharing ? 'Live location ON' : 'Share live location'}</strong>
-            <small>{liveSharing ? 'Tap to stop sharing' : 'Visible to this group only'}</small>
+            <strong>{
+              liveStarting
+                ? 'Finding GPS…'
+                : liveSharing
+                  ? 'Live location ON'
+                  : 'Share live location'
+            }</strong>
+            <small>{
+              liveSharing
+                ? ownLocation?.accuracyMeters
+                  ? `GPS ±${Math.round(ownLocation.accuracyMeters)} m · tap to stop`
+                  : 'Visible to this group only · tap to stop'
+                : 'Visible to this group only'
+            }</small>
           </div>
         </button>
 
