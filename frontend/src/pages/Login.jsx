@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
+import {
+  confirmFirebaseOtp,
+  createFirebaseRecaptcha,
+  firebaseAuthErrorMessage,
+  maskFirebasePhone,
+  sendFirebaseOtp,
+  signOutFirebase
+} from '../auth/firebasePhoneAuth';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -17,6 +25,7 @@ export default function Login() {
     otpRequired: true,
     otpAvailable: false,
     demoMode: false,
+    channel: 'sms',
     codeLength: 6,
     resendAfterSeconds: 30
   });
@@ -25,6 +34,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const pending = useRef(false);
+  const firebaseConfirmation = useRef(null);
+  const firebaseVerifier = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -74,6 +85,13 @@ export default function Login() {
     setMaskedPhone('');
     setDemoCode('');
     setResendIn(0);
+    firebaseConfirmation.current = null;
+    try {
+      firebaseVerifier.current?.clear();
+    } catch {
+      // Ignore a stale reCAPTCHA instance.
+    }
+    firebaseVerifier.current = null;
     setError('');
   }
 
@@ -136,6 +154,26 @@ export default function Login() {
     setError('');
 
     try {
+      if (authConfig.channel === 'firebase') {
+        try {
+          firebaseVerifier.current?.clear();
+        } catch {
+          // Ignore a stale reCAPTCHA instance.
+        }
+
+        const verifier = await createFirebaseRecaptcha('firebase-recaptcha');
+        firebaseVerifier.current = verifier;
+
+        const result = await sendFirebaseOtp(phone.trim(), verifier);
+        firebaseConfirmation.current = result.confirmation;
+        setMaskedPhone(maskFirebasePhone(result.phone));
+        setDemoCode('');
+        setResendIn(authConfig.resendAfterSeconds || 30);
+        setOtp('');
+        setOtpStage('otp');
+        return;
+      }
+
       const response = await axiosClient.post('/api/users/otp/request', {
         name: mode === 'register' ? name.trim() : null,
         phone: phone.trim(),
@@ -150,7 +188,11 @@ export default function Login() {
       setOtp('');
       setOtpStage('otp');
     } catch (err) {
-      setError(err.message);
+      setError(
+        authConfig.channel === 'firebase'
+          ? firebaseAuthErrorMessage(err)
+          : err.message
+      );
     } finally {
       pending.current = false;
       setLoading(false);
@@ -169,6 +211,24 @@ export default function Login() {
     setError('');
 
     try {
+      if (authConfig.channel === 'firebase') {
+        const firebaseIdToken = await confirmFirebaseOtp(
+          firebaseConfirmation.current,
+          otp
+        );
+
+        const response = await axiosClient.post('/api/users/firebase/verify', {
+          name: mode === 'register' ? name.trim() : null,
+          phone: phone.trim(),
+          purpose: mode.toUpperCase(),
+          idToken: firebaseIdToken
+        });
+
+        await signOutFirebase();
+        finishLogin(response.data);
+        return;
+      }
+
       const response = await axiosClient.post('/api/users/otp/verify', {
         name: mode === 'register' ? name.trim() : null,
         phone: phone.trim(),
@@ -178,7 +238,11 @@ export default function Login() {
 
       finishLogin(response.data);
     } catch (err) {
-      setError(err.message);
+      setError(
+        authConfig.channel === 'firebase'
+          ? firebaseAuthErrorMessage(err)
+          : err.message
+      );
     } finally {
       pending.current = false;
       setLoading(false);
@@ -351,6 +415,8 @@ export default function Login() {
               </button>
             </div>
           </>}
+
+          <div id="firebase-recaptcha" aria-hidden="true"></div>
 
           {error && <p className="form-error" role="alert">{error}</p>}
 
