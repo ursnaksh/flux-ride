@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
+import RideChat from '../components/RideChat';
 import { formatDeparture } from '../utils/trips';
 
 const COMMUTE_KEY = 'flux_daily_commute';
@@ -66,6 +67,9 @@ export default function Home() {
   const [matchFlash, setMatchFlash] = useState(
     () => sessionStorage.getItem('flux_match_flash') === '1'
   );
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatUnread, setChatUnread] = useState(0);
+  const [latestChatId, setLatestChatId] = useState(null);
 
   const liveWatch = useRef(null);
   const lastLiveSentAt = useRef(0);
@@ -143,6 +147,63 @@ export default function Home() {
     const timer = window.setTimeout(() => setMatchFlash(false), 5000);
     return () => window.clearTimeout(timer);
   }, [matchFlash]);
+
+  useEffect(() => {
+    if (!activeMatch?.id || !userId) {
+      setChatUnread(0);
+      setLatestChatId(null);
+      return undefined;
+    }
+
+    let alive = true;
+    const readKey = `flux_chat_read_${activeMatch.id}_${userId}`;
+
+    async function checkChat() {
+      try {
+        const response = await axiosClient.get(
+          `/api/pools/${activeMatch.id}/messages?userId=${userId}`
+        );
+        if (!alive) return;
+
+        const items = response.data || [];
+        const latest = items[items.length - 1];
+        const latestId = Number(latest?.id || 0);
+        setLatestChatId(latestId || null);
+
+        if (chatOpen) {
+          if (latestId) localStorage.setItem(readKey, String(latestId));
+          setChatUnread(0);
+          return;
+        }
+
+        const lastRead = Number(localStorage.getItem(readKey) || 0);
+        const unread = items.filter(item =>
+          Number(item.id) > lastRead
+          && Number(item.userId) !== userId
+        ).length;
+        setChatUnread(unread);
+      } catch (_) {
+        // Chat itself still has its own connection + REST fallback.
+      }
+    }
+
+    checkChat();
+    const timer = window.setInterval(checkChat, 10000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [activeMatch?.id, userId, chatOpen]);
+
+  useEffect(() => {
+    if (!chatOpen || !activeMatch?.id || !latestChatId) return;
+    localStorage.setItem(
+      `flux_chat_read_${activeMatch.id}_${userId}`,
+      String(latestChatId)
+    );
+    setChatUnread(0);
+  }, [chatOpen, activeMatch?.id, latestChatId, userId]);
 
   useEffect(() => () => {
     if (liveWatch.current != null && navigator.geolocation) {
@@ -337,9 +398,10 @@ export default function Home() {
         <Link to={`/groups/${activeMatch.id}`} className="btn next-primary-btn home-ride-main">
           Open ride hub <span>↗</span>
         </Link>
-        <Link to={`/groups/${activeMatch.id}#coordination`} className="btn next-secondary-btn">
+        <button type="button" className="btn next-secondary-btn home-chat-button" onClick={() => setChatOpen(true)}>
           Chat
-        </Link>
+          {chatUnread > 0 && <span className="home-chat-unread">{chatUnread > 9 ? '9+' : chatUnread}</span>}
+        </button>
         <Link to={`/groups/${activeMatch.id}#live-map`} className="btn next-secondary-btn">
           Live map
         </Link>
@@ -568,6 +630,28 @@ export default function Home() {
       </div>
       <Link to="/find" className="btn next-secondary-btn">Find another ride <span>↗</span></Link>
     </section>}
+
+    {chatOpen && activeMatch && <div className="home-chat-drawer-shell" role="dialog" aria-modal="true" aria-label="Ride chat">
+      <button className="home-chat-backdrop" type="button" aria-label="Close ride chat" onClick={() => setChatOpen(false)}></button>
+      <aside className="home-chat-drawer">
+        <div className="home-chat-drawer-head">
+          <div>
+            <p className="eyebrow">ACTIVE RIDE</p>
+            <strong>{activeMatch.destinationLabel}</strong>
+          </div>
+          <button type="button" className="home-chat-close" onClick={() => setChatOpen(false)} aria-label="Close chat">×</button>
+        </div>
+        <RideChat
+          groupId={activeMatch.id}
+          members={members}
+          compact
+          autoFocus
+        />
+        <Link to={`/groups/${activeMatch.id}#coordination`} className="home-chat-full-link" onClick={() => setChatOpen(false)}>
+          Open full Ride Hub →
+        </Link>
+      </aside>
+    </div>}
 
     <section className="team-flux-home-credit">
       <span className="credit-line"></span>
