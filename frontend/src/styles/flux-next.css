@@ -5406,3 +5406,46 @@ body,
   line-height: 1.5;
 }
 
+
+
+.server-wake-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 10px 0 14px;
+  padding: 11px 12px;
+  border: 1px solid rgba(72,223,255,.10);
+  border-radius: 13px;
+  background: rgba(72,223,255,.035);
+}
+
+.server-wake-note > span {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  margin-top: 3px;
+  border: 2px solid rgba(72,223,255,.25);
+  border-top-color: var(--nx-cyan);
+  border-radius: 50%;
+  animation: server-wake-spin .9s linear infinite;
+}
+
+.server-wake-note > div {
+  display: grid;
+  gap: 3px;
+}
+
+.server-wake-note strong {
+  color: #D7F8FF;
+  font-size: 9px;
+}
+
+.server-wake-note small {
+  color: #71818A;
+  font-size: 7.5px;
+  line-height: 1.45;
+}
+
+@keyframes server-wake-spin {
+  to { transform: rotate(360deg); }
+}
