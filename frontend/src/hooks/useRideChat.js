@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axiosClient from '../api/axiosClient';
 
-function socketUrl(groupId, userId) {
+function socketUrl(groupId) {
   const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
   const url = new URL(apiBase);
+  const token = localStorage.getItem('flux_auth_token') || '';
+
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   url.pathname = '/ws/chat';
   url.search = '';
   url.searchParams.set('groupId', groupId);
-  url.searchParams.set('userId', userId);
+  url.searchParams.set('token', token);
+
   return url.toString();
 }
 
@@ -69,7 +72,7 @@ export default function useRideChat(groupId, userId) {
 
       setSocketState(attempt === 0 ? 'connecting' : 'reconnecting');
 
-      const socket = new WebSocket(socketUrl(groupId, userId));
+      const socket = new WebSocket(socketUrl(groupId));
       socketRef.current = socket;
 
       socket.onopen = () => {
