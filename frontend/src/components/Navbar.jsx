@@ -42,5 +42,20 @@ export default function Navbar() {
         <button className="btn btn-ghost nav-logout" onClick={logout}>Log out</button>
       </> : <Link className="btn btn-primary nav-cta" to="/login">Get started <span>↗</span></Link>}</div>
     </header>
+
+    {signedIn && <nav className="flux-mobile-nav" aria-label="Mobile navigation">
+      <NavLink to="/" end>
+        <span className="mobile-nav-icon" aria-hidden="true">⌂</span>
+        <span>Home</span>
+      </NavLink>
+      <NavLink to="/find">
+        <span className="mobile-nav-icon" aria-hidden="true">⌖</span>
+        <span>Find</span>
+      </NavLink>
+      <NavLink to="/my-trips">
+        <span className="mobile-nav-icon" aria-hidden="true">↗</span>
+        <span>Trips</span>
+      </NavLink>
+    </nav>}
   </>;
 }
