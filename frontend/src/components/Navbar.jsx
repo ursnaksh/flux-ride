@@ -4,11 +4,24 @@ import NotificationCenter from './NotificationCenter';
 export default function Navbar() {
   const navigate = useNavigate();
   const name = localStorage.getItem('flux_user_name');
-  const signedIn = localStorage.getItem('flux_role') === 'USER' && Number(localStorage.getItem('flux_user_id')) > 0;
+  const signedIn =
+    localStorage.getItem('flux_role') === 'USER'
+    && Number(localStorage.getItem('flux_user_id')) > 0
+    && Boolean(localStorage.getItem('flux_auth_token'));
   const verified = localStorage.getItem('flux_phone_verified') === 'true';
 
   function logout() {
-    ['flux_user_id', 'flux_user_name', 'flux_role', 'flux_driver_id', 'flux_phone_verified'].forEach(key => localStorage.removeItem(key));
+    [
+      'flux_auth_token',
+      'flux_auth_expires_at',
+      'flux_user_id',
+      'flux_user_name',
+      'flux_role',
+      'flux_driver_id',
+      'flux_phone_verified',
+      'flux_student_verified',
+      'flux_student_email'
+    ].forEach(key => localStorage.removeItem(key));
     navigate('/login');
   }
 
