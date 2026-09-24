@@ -220,7 +220,10 @@ public class SharedTripController {
                         authenticatedUserId,
                         Boolean.TRUE.equals(request.getSharing()),
                         request.getLatitude(),
-                        request.getLongitude()
+                        request.getLongitude(),
+                        request.getAccuracyMeters(),
+                        request.getSpeedMetersPerSecond(),
+                        request.getHeadingDegrees()
                 );
 
         return ResponseEntity.ok(
