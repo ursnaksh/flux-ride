@@ -5449,3 +5449,321 @@ body,
 @keyframes server-wake-spin {
   to { transform: rotate(360deg); }
 }
+
+
+/* ==========================================================
+   LIVE LOCATION 2.0
+   ========================================================== */
+
+.flux-live-person-pin {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1px;
+  border: 2px solid rgba(255,255,255,.88);
+  border-radius: 18px;
+  color: #07120e;
+  background: var(--nx-lime);
+  box-shadow:
+    0 10px 24px rgba(0,0,0,.28),
+    0 0 0 5px rgba(217,255,120,.12);
+  font-family: inherit;
+  transform: translateZ(0);
+}
+
+.flux-live-person-pin.is-you {
+  color: #071014;
+  background: var(--nx-cyan);
+  box-shadow:
+    0 10px 24px rgba(0,0,0,.28),
+    0 0 0 6px rgba(72,223,255,.13);
+}
+
+.flux-live-person-pin.is-focused {
+  transform: scale(1.12);
+  box-shadow:
+    0 12px 34px rgba(0,0,0,.34),
+    0 0 0 8px rgba(124,99,255,.16);
+}
+
+.flux-live-person-pin strong {
+  position: relative;
+  z-index: 2;
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: -.02em;
+}
+
+.flux-live-person-pin small {
+  position: relative;
+  z-index: 2;
+  font-size: 6px;
+  line-height: 1;
+  opacity: .72;
+  font-weight: 850;
+}
+
+.flux-live-pulse {
+  position: absolute;
+  inset: -7px;
+  border: 1px solid currentColor;
+  border-radius: 22px;
+  opacity: .18;
+  animation: flux-live-pulse 2s ease-out infinite;
+}
+
+@keyframes flux-live-pulse {
+  0% { transform: scale(.84); opacity: .26; }
+  75%, 100% { transform: scale(1.18); opacity: 0; }
+}
+
+.live-coordination-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 11px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(72,223,255,.09);
+  border-radius: 13px;
+  background: rgba(72,223,255,.035);
+}
+
+.live-coordination-status.everyone-near {
+  border-color: rgba(217,255,120,.14);
+  background: rgba(217,255,120,.05);
+}
+
+.live-status-orb {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #081318;
+  background: var(--nx-cyan);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-coordination-status.everyone-near .live-status-orb {
+  color: #111508;
+  background: var(--nx-lime);
+}
+
+.live-coordination-status > div {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 3px;
+}
+
+.live-coordination-status strong {
+  color: #E7EBF0;
+  font-size: 9px;
+}
+
+.live-coordination-status small {
+  color: #687483;
+  font-size: 7.5px;
+}
+
+.live-coordination-status button {
+  flex: 0 0 auto;
+  border: 0;
+  color: var(--nx-cyan);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 7.5px;
+  font-weight: 800;
+}
+
+.live-location-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 7px;
+  margin: 10px 0 12px;
+}
+
+.live-location-card {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.055);
+  border-radius: 13px;
+  color: inherit;
+  background: rgba(255,255,255,.022);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    transform .18s var(--nx-ease),
+    border-color .18s var(--nx-ease),
+    background .18s var(--nx-ease);
+}
+
+.live-location-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(72,223,255,.16);
+  background: rgba(72,223,255,.035);
+}
+
+.live-location-card.is-focused {
+  border-color: rgba(124,99,255,.25);
+  background: rgba(124,99,255,.07);
+  box-shadow: inset 0 0 0 1px rgba(124,99,255,.05);
+}
+
+.live-person-avatar {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #061317;
+  background: var(--nx-cyan);
+  font-size: 7px;
+  font-weight: 950;
+}
+
+.live-person-avatar i {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #11141D;
+  border-radius: 50%;
+  background: var(--nx-green);
+  box-shadow: 0 0 8px rgba(94,230,183,.42);
+}
+
+.live-person-copy {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 3px;
+}
+
+.live-person-copy > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.live-person-copy strong {
+  color: #E9EDF2;
+  font-size: 9px;
+}
+
+.live-person-copy small {
+  overflow: hidden;
+  color: #788291;
+  font-size: 7.5px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+}
+
+.live-person-copy em {
+  color: #505A68;
+  font-size: 7px;
+  font-style: normal;
+}
+
+.live-location-card > b {
+  color: #77818F;
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.live-location-card.is-focused > b {
+  color: #B8ABFF;
+}
+
+.live-quality {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 5px;
+  border-radius: 999px;
+  font-size: 6.5px;
+  font-weight: 850;
+}
+
+.live-quality-good {
+  color: #B7F3E1;
+  background: rgba(94,230,183,.07);
+}
+
+.live-quality-okay {
+  color: #D9E4A9;
+  background: rgba(217,255,120,.06);
+}
+
+.live-quality-weak {
+  color: #FFB3BE;
+  background: rgba(255,110,127,.07);
+}
+
+.live-quality-unknown {
+  color: #96A0AE;
+  background: rgba(255,255,255,.04);
+}
+
+.live-location-button:disabled,
+.home-feature-action:disabled {
+  cursor: wait;
+  opacity: .68;
+}
+
+.live-location-button.is-sharing {
+  color: #C6F8E8;
+  border-color: rgba(94,230,183,.12);
+  background: rgba(94,230,183,.055);
+}
+
+.group-osm-map {
+  min-height: 430px;
+}
+
+@media (max-width: 760px) {
+  .group-osm-map {
+    min-height: 360px;
+  }
+
+  .live-location-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .live-location-card {
+    padding: 10px 9px;
+  }
+
+  .live-coordination-status {
+    align-items: flex-start;
+  }
+
+  .live-coordination-status button {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .group-osm-map {
+    min-height: 330px;
+  }
+
+  .live-person-avatar {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+}
