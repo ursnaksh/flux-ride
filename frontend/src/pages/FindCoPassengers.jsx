@@ -273,6 +273,7 @@ function RequestForm({ useDailyCommute = false, inviteGroupId = null }) {
 }
 
 function RequestResults({ requestId }) {
+  const navigate = useNavigate();
   const userId = localStorage.getItem('flux_user_id');
   const [request, setRequest] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -325,6 +326,8 @@ function RequestResults({ requestId }) {
           if ((group.members?.length || 0) > 1) {
             setRequest(value => value ? { ...value, status: 'MATCHED' } : value);
             setMatches([]);
+            sessionStorage.setItem('flux_match_flash', '1');
+            navigate('/', { replace: true });
           }
         }
       } catch (_) {
@@ -344,6 +347,8 @@ function RequestResults({ requestId }) {
       setJoined(response.data);
       setRequest(value => ({ ...value, status: 'MATCHED' }));
       setMatches([]);
+      sessionStorage.setItem('flux_match_flash', '1');
+      navigate('/', { replace: true });
     } catch (err) {
       if (!alive.current) return;
       setJoinError(`${err.message} Your request status and matches have been checked again below.`);
