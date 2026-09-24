@@ -12,6 +12,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -23,15 +25,23 @@ public class PhoneOtpService {
 
     private static final int OTP_LENGTH = 6;
     private static final int MAX_SENDS_PER_WINDOW = 5;
+    private static final int MAX_VERIFY_ATTEMPTS = 5;
     private static final long RATE_WINDOW_MS = 15 * 60 * 1000L;
 
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
+    private final SecureRandom secureRandom = new SecureRandom();
+
     private final ConcurrentHashMap<String, Deque<Long>> sendHistory =
+            new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, DemoChallenge> demoChallenges =
             new ConcurrentHashMap<>();
 
     @Value("${auth.otp.enabled:false}")
     private boolean otpEnabled;
+
+    @Value("${auth.otp.provider:msg91}")
+    private String provider;
 
     @Value("${auth.otp.msg91.auth-key:}")
     private String authKey;
@@ -45,6 +55,12 @@ public class PhoneOtpService {
     @Value("${auth.otp.resend-seconds:30}")
     private int resendSeconds;
 
+    @Value("${auth.otp.demo.expose-code:false}")
+    private boolean exposeDemoCode;
+
+    @Value("${auth.otp.demo.secret:flux-demo-otp-secret}")
+    private String demoSecret;
+
     public PhoneOtpService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
@@ -56,9 +72,18 @@ public class PhoneOtpService {
         return otpEnabled;
     }
 
+    public boolean isDemoMode() {
+        return otpEnabled && "demo".equalsIgnoreCase(provider);
+    }
+
     public boolean isAvailable() {
-        return otpEnabled
-                && authKey != null && !authKey.isBlank()
+        if (!otpEnabled) return false;
+
+        if (isDemoMode()) {
+            return true;
+        }
+
+        return authKey != null && !authKey.isBlank()
                 && templateId != null && !templateId.isBlank();
     }
 
@@ -111,6 +136,10 @@ public class PhoneOtpService {
         String phone = normalizePhone(rawPhone);
         checkRateLimit(phone);
 
+        if (isDemoMode()) {
+            return createDemoOtp(phone);
+        }
+
         String mobile = phone.substring(1);
         String url = "https://control.msg91.com/api/v5/otp"
                 + "?template_id=" + encode(templateId)
@@ -119,7 +148,6 @@ public class PhoneOtpService {
                 + "&otp_length=" + OTP_LENGTH;
 
         JsonNode response = sendProviderRequest(
-                "POST",
                 url,
                 true
         );
@@ -133,7 +161,9 @@ public class PhoneOtpService {
         return new OtpRequestResponse(
                 maskPhone(phone),
                 getExpirySeconds(),
-                resendSeconds
+                resendSeconds,
+                false,
+                null
         );
     }
 
@@ -148,13 +178,17 @@ public class PhoneOtpService {
             );
         }
 
+        if (isDemoMode()) {
+            verifyDemoOtp(phone, cleanOtp);
+            return;
+        }
+
         String mobile = phone.substring(1);
         String url = "https://control.msg91.com/api/v5/otp/verify"
                 + "?otp=" + encode(cleanOtp)
                 + "&mobile=" + encode(mobile);
 
         JsonNode response = sendProviderRequest(
-                "GET",
                 url,
                 false
         );
@@ -174,6 +208,115 @@ public class PhoneOtpService {
         }
     }
 
+    private OtpRequestResponse createDemoOtp(String phone) {
+        String code = String.format(
+                "%06d",
+                secureRandom.nextInt(1_000_000)
+        );
+
+        long expiresAt =
+                System.currentTimeMillis()
+                        + getExpirySeconds() * 1000L;
+
+        demoChallenges.put(
+                phone,
+                new DemoChallenge(
+                        hashDemoCode(phone, code),
+                        expiresAt,
+                        0
+                )
+        );
+
+        return new OtpRequestResponse(
+                maskPhone(phone),
+                getExpirySeconds(),
+                resendSeconds,
+                true,
+                exposeDemoCode ? code : null
+        );
+    }
+
+    private void verifyDemoOtp(
+            String phone,
+            String code) {
+
+        DemoChallenge challenge =
+                demoChallenges.get(phone);
+
+        if (challenge == null) {
+            throw new IllegalArgumentException(
+                    "Request a new OTP first."
+            );
+        }
+
+        if (System.currentTimeMillis()
+                > challenge.expiresAtMs()) {
+            demoChallenges.remove(phone);
+            throw new IllegalArgumentException(
+                    "That code has expired. Request a new OTP."
+            );
+        }
+
+        if (challenge.attempts()
+                >= MAX_VERIFY_ATTEMPTS) {
+            demoChallenges.remove(phone);
+            throw new IllegalArgumentException(
+                    "Too many incorrect attempts. Request a new OTP."
+            );
+        }
+
+        String suppliedHash =
+                hashDemoCode(phone, code);
+
+        boolean matches =
+                MessageDigest.isEqual(
+                        challenge.codeHash()
+                                .getBytes(StandardCharsets.UTF_8),
+                        suppliedHash
+                                .getBytes(StandardCharsets.UTF_8)
+                );
+
+        if (!matches) {
+            demoChallenges.put(
+                    phone,
+                    new DemoChallenge(
+                            challenge.codeHash(),
+                            challenge.expiresAtMs(),
+                            challenge.attempts() + 1
+                    )
+            );
+
+            throw new IllegalArgumentException(
+                    "That OTP is incorrect."
+            );
+        }
+
+        demoChallenges.remove(phone);
+    }
+
+    private String hashDemoCode(
+            String phone,
+            String code) {
+
+        try {
+            MessageDigest digest =
+                    MessageDigest.getInstance("SHA-256");
+
+            byte[] result = digest.digest(
+                    (demoSecret + "|" + phone + "|" + code)
+                            .getBytes(StandardCharsets.UTF_8)
+            );
+
+            return java.util.HexFormat.of()
+                    .formatHex(result);
+        } catch (Exception ex) {
+            throw new IllegalStateException(
+                    "Could not secure demo OTP",
+                    ex
+            );
+        }
+    }
+
     private void ensureAvailable() {
         if (!otpEnabled) {
             throw new IllegalArgumentException(
@@ -181,8 +324,7 @@ public class PhoneOtpService {
             );
         }
 
-        if (authKey == null || authKey.isBlank()
-                || templateId == null || templateId.isBlank()) {
+        if (!isAvailable()) {
             throw new IllegalArgumentException(
                     "Phone verification is temporarily unavailable."
             );
@@ -202,18 +344,23 @@ public class PhoneOtpService {
         }
 
         if (!history.isEmpty()
-                && now - history.peekLast() < resendSeconds * 1000L) {
+                && now - history.peekLast()
+                < resendSeconds * 1000L) {
+
             long waitSeconds = Math.max(
                     1,
-                    resendSeconds - ((now - history.peekLast()) / 1000L)
+                    resendSeconds
+                            - ((now - history.peekLast()) / 1000L)
             );
+
             throw new IllegalArgumentException(
                     "Please wait " + waitSeconds
                             + " seconds before requesting another OTP."
             );
         }
 
-        if (history.size() >= MAX_SENDS_PER_WINDOW) {
+        if (history.size()
+                >= MAX_SENDS_PER_WINDOW) {
             throw new IllegalArgumentException(
                     "Too many OTP requests. Try again in a few minutes."
             );
@@ -223,25 +370,28 @@ public class PhoneOtpService {
     }
 
     private JsonNode sendProviderRequest(
-            String method,
             String url,
-            boolean sendRequest) {
+            boolean post) {
 
         try {
-            HttpRequest.Builder builder = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(12))
-                    .header("Accept", "application/json")
-                    .header("authkey", authKey);
+            HttpRequest.Builder builder =
+                    HttpRequest.newBuilder()
+                            .uri(URI.create(url))
+                            .timeout(Duration.ofSeconds(12))
+                            .header("Accept", "application/json")
+                            .header("authkey", authKey);
 
-            HttpRequest request = sendRequest
-                    ? builder.POST(HttpRequest.BodyPublishers.noBody()).build()
+            HttpRequest request = post
+                    ? builder.POST(
+                            HttpRequest.BodyPublishers.noBody()
+                    ).build()
                     : builder.GET().build();
 
-            HttpResponse<String> response = httpClient.send(
-                    request,
-                    HttpResponse.BodyHandlers.ofString()
-            );
+            HttpResponse<String> response =
+                    httpClient.send(
+                            request,
+                            HttpResponse.BodyHandlers.ofString()
+                    );
 
             if (response.statusCode() < 200
                     || response.statusCode() >= 300) {
@@ -250,7 +400,9 @@ public class PhoneOtpService {
                 );
             }
 
-            return objectMapper.readTree(response.body());
+            return objectMapper.readTree(
+                    response.body()
+            );
 
         } catch (IllegalArgumentException ex) {
             throw ex;
@@ -262,9 +414,12 @@ public class PhoneOtpService {
     }
 
     private boolean isSuccess(JsonNode response) {
-        String type = response.path("type").asText("");
-        String message = response.path("message").asText("")
-                .toLowerCase(Locale.ROOT);
+        String type =
+                response.path("type").asText("");
+        String message =
+                response.path("message")
+                        .asText("")
+                        .toLowerCase(Locale.ROOT);
 
         return "success".equalsIgnoreCase(type)
                 || message.contains("otp_sent")
@@ -272,10 +427,18 @@ public class PhoneOtpService {
     }
 
     private String maskPhone(String phone) {
-        if (phone.length() <= 6) return phone;
-        return phone.substring(0, Math.min(3, phone.length()))
+        if (phone.length() <= 6) {
+            return phone;
+        }
+
+        return phone.substring(
+                    0,
+                    Math.min(3, phone.length())
+                )
                 + "••••••"
-                + phone.substring(phone.length() - 4);
+                + phone.substring(
+                    phone.length() - 4
+                );
     }
 
     private String encode(String value) {
@@ -283,5 +446,11 @@ public class PhoneOtpService {
                 value,
                 StandardCharsets.UTF_8
         );
+    }
+
+    private record DemoChallenge(
+            String codeHash,
+            long expiresAtMs,
+            int attempts) {
     }
 }
