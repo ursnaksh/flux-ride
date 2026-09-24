@@ -3,7 +3,7 @@ import axiosClient from '../api/axiosClient';
 import RideChat from './RideChat';
 import { formatDeparture, money } from '../utils/trips';
 
-export default function PoolCard({ pool, onPoolChange, showChat = true }) {
+export default function PoolCard({ pool, onPoolChange, showChat = true, roomMode = false }) {
   const [snapshot, setSnapshot] = useState(pool);
   const [readyBusy, setReadyBusy] = useState(false);
   const [actionError, setActionError] = useState('');
@@ -36,21 +36,31 @@ export default function PoolCard({ pool, onPoolChange, showChat = true }) {
 
   const readyCount = members.filter(member => member.ready).length;
 
-  return <article className="card shared-card">
-    <div className="card-row">
+  return <article className={`card shared-card ${roomMode ? 'shared-card-room' : ''}`}>
+    {roomMode ? <div className="room-card-intro" id="people">
       <div>
-        <p className="eyebrow">SHARED TRIP #{snapshot.id}</p>
-        <h3>To {snapshot.destinationLabel}</h3>
+        <p className="eyebrow">PEOPLE &amp; READINESS</p>
+        <h3>{members.length} {members.length === 1 ? 'passenger' : 'passengers'} in this ride</h3>
       </div>
       <span className={`status-badge status-${snapshot.status?.toLowerCase()}`}>
         {snapshot.status?.replaceAll('_', ' ')}
       </span>
-    </div>
+    </div> : <>
+      <div className="card-row">
+        <div>
+          <p className="eyebrow">SHARED TRIP #{snapshot.id}</p>
+          <h3>To {snapshot.destinationLabel}</h3>
+        </div>
+        <span className={`status-badge status-${snapshot.status?.toLowerCase()}`}>
+          {snapshot.status?.replaceAll('_', ' ')}
+        </span>
+      </div>
 
-    <p className="departure-line">
-      {formatDeparture(snapshot.departureTime)}
-      <span> · {members.length}/4 passengers</span>
-    </p>
+      <p className="departure-line">
+        {formatDeparture(snapshot.departureTime)}
+        <span> · {members.length}/4 passengers</span>
+      </p>
+    </>}
 
     <ul className="member-list">
       {members.map((member, index) => <li key={member.id || member.userId}>
@@ -78,7 +88,7 @@ export default function PoolCard({ pool, onPoolChange, showChat = true }) {
       <strong>{money(perMember)}</strong>
     </div>
 
-    {members.length > 1 && <section className="ready-panel">
+    {members.length > 1 && <section className="ready-panel" id={roomMode ? 'readiness' : undefined}>
       <div>
         <p className="eyebrow">READY CHECK</p>
         <strong>{readyCount}/{members.length} passengers ready</strong>
@@ -97,10 +107,12 @@ export default function PoolCard({ pool, onPoolChange, showChat = true }) {
 
     {actionError && <p className="form-error">{actionError}</p>}
 
-    {showChat && members.length > 1 && <RideChat
-      groupId={snapshot.id}
-      members={members}
-    />}
+    {showChat && members.length > 1 && <div id={roomMode ? 'chat' : undefined} className={roomMode ? 'room-chat-section' : undefined}>
+      <RideChat
+        groupId={snapshot.id}
+        members={members}
+      />
+    </div>}
 
     <p className="quiet-note">
       Coordinate here, then book your Uber, Ola, cab or auto separately. Joining FLUX RIDE does not book transport or automatically reveal private contact details.
