@@ -479,6 +479,21 @@ public class SharedTripService {
                 .toList();
     }
 
+    private Double sanitizeNonNegative(Double value) {
+        if (value == null || !Double.isFinite(value) || value < 0.0) {
+            return null;
+        }
+        return value;
+    }
+
+    private Double sanitizeHeading(Double value) {
+        if (value == null || !Double.isFinite(value)
+                || value < 0.0 || value > 360.0) {
+            return null;
+        }
+        return value;
+    }
+
     @Transactional
     public SharedTrip updateReady(
             Long sharedTripId,
