@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
+import { formatDeparture } from '../utils/trips';
 
 const COMMUTE_KEY = 'flux_daily_commute';
 
@@ -17,10 +18,57 @@ function shortPlace(label) {
   return label.split(',').slice(0, 2).join(',').trim();
 }
 
+function countdownLabel(departureTime, now = Date.now()) {
+  if (!departureTime) return 'Departure time pending';
+  const diff = new Date(departureTime).getTime() - now;
+  if (!Number.isFinite(diff)) return formatDeparture(departureTime);
+  if (diff <= 0) return 'Departure time reached';
+
+  const mins = Math.ceil(diff / 60000);
+  if (mins < 60) return `Leaving in ${mins} min`;
+
+  const hours = Math.floor(mins / 60);
+  const left = mins % 60;
+  if (hours < 24) return `Leaving in ${hours}h ${left}m`;
+
+  const days = Math.floor(hours / 24);
+  return `Leaving in ${days}d ${hours % 24}h`;
+}
+
+function chooseActiveMatch(groups = []) {
+  const active = groups
+    .filter(group =>
+      (group.members?.length || 0) > 1
+      && !['COMPLETED', 'CANCELLED'].includes(group.status)
+    )
+    .sort((a, b) => {
+      const aTime = new Date(a.departureTime || 0).getTime();
+      const bTime = new Date(b.departureTime || 0).getTime();
+      return aTime - bTime;
+    });
+
+  return active[0] || null;
+}
+
 export default function Home() {
   const [count, setCount] = useState(null);
   const [commute, setCommute] = useState(loadCommute);
+  const [activeMatch, setActiveMatch] = useState(null);
+  const [liveLocations, setLiveLocations] = useState([]);
+  const [liveSharing, setLiveSharing] = useState(false);
+  const [liveError, setLiveError] = useState('');
+  const [readyBusy, setReadyBusy] = useState(false);
+  const [copyState, setCopyState] = useState('');
+  const [now, setNow] = useState(Date.now());
+  const [notificationPermission, setNotificationPermission] = useState(
+    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
+  );
+
+  const liveWatch = useRef(null);
+  const lastLiveSentAt = useRef(0);
+
   const name = localStorage.getItem('flux_user_name') || 'there';
+  const userId = Number(localStorage.getItem('flux_user_id'));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -30,13 +78,306 @@ export default function Home() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    if (!userId) return undefined;
+    let alive = true;
+
+    async function loadGroups() {
+      try {
+        const response = await axiosClient.get(`/api/pools/user/${userId}`);
+        if (!alive) return;
+        setActiveMatch(chooseActiveMatch(response.data || []));
+      } catch (_) {
+        if (alive) setActiveMatch(null);
+      }
+    }
+
+    loadGroups();
+    const timer = window.setInterval(loadGroups, 5000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!activeMatch?.id || !userId) {
+      setLiveLocations([]);
+      return undefined;
+    }
+
+    let alive = true;
+
+    async function loadLive() {
+      try {
+        const response = await axiosClient.get(
+          `/api/pools/${activeMatch.id}/live-locations?userId=${userId}`
+        );
+        if (alive) setLiveLocations(response.data || []);
+      } catch (_) {
+        if (alive) setLiveLocations([]);
+      }
+    }
+
+    loadLive();
+    const timer = window.setInterval(loadLive, 5000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [activeMatch?.id, userId]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => () => {
+    if (liveWatch.current != null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(liveWatch.current);
+      liveWatch.current = null;
+    }
+  }, []);
+
+  const members = activeMatch?.members || [];
+  const currentMember = members.find(member => Number(member.userId) === userId);
+  const readyCount = members.filter(member => member.ready).length;
+  const otherMembers = members.filter(member => Number(member.userId) !== userId);
+
+  const matchTitle = useMemo(() => {
+    if (!otherMembers.length) return 'Your group';
+    if (otherMembers.length === 1) return `Matched with ${otherMembers[0].userName}`;
+    return `Matched with ${otherMembers[0].userName} + ${otherMembers.length - 1}`;
+  }, [otherMembers]);
+
   function clearCommute() {
     localStorage.removeItem(COMMUTE_KEY);
     setCommute(null);
   }
 
+  async function toggleReady() {
+    if (!activeMatch || !currentMember || readyBusy) return;
+
+    setReadyBusy(true);
+    try {
+      const response = await axiosClient.post(
+        `/api/pools/${activeMatch.id}/ready/${userId}?ready=${!currentMember.ready}`
+      );
+      setActiveMatch(response.data);
+    } catch (_) {
+      // Group polling will retry and keep the latest server state.
+    } finally {
+      setReadyBusy(false);
+    }
+  }
+
+  function startLiveLocation() {
+    if (!activeMatch || !navigator.geolocation || liveWatch.current != null) {
+      if (!navigator.geolocation) {
+        setLiveError('Live location is not supported by this browser.');
+      }
+      return;
+    }
+
+    setLiveError('');
+
+    liveWatch.current = navigator.geolocation.watchPosition(
+      async position => {
+        const nowMs = Date.now();
+        if (nowMs - lastLiveSentAt.current < 8000) return;
+        lastLiveSentAt.current = nowMs;
+
+        try {
+          await axiosClient.post(
+            `/api/pools/${activeMatch.id}/location/${userId}`,
+            {
+              sharing: true,
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude
+            }
+          );
+          setLiveSharing(true);
+          setLiveError('');
+        } catch (err) {
+          setLiveError(err.message);
+        }
+      },
+      error => {
+        setLiveSharing(false);
+        setLiveError(
+          error.code === 1
+            ? 'Location permission was denied. Allow location access in your browser to share live.'
+            : 'Your live location could not be read right now.'
+        );
+        if (liveWatch.current != null) {
+          navigator.geolocation.clearWatch(liveWatch.current);
+          liveWatch.current = null;
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 15000
+      }
+    );
+  }
+
+  async function stopLiveLocation() {
+    if (!activeMatch) return;
+
+    if (liveWatch.current != null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(liveWatch.current);
+      liveWatch.current = null;
+    }
+
+    setLiveSharing(false);
+    lastLiveSentAt.current = 0;
+
+    try {
+      await axiosClient.post(
+        `/api/pools/${activeMatch.id}/location/${userId}`,
+        { sharing: false, latitude: null, longitude: null }
+      );
+      setLiveLocations(current =>
+        current.filter(item => Number(item.userId) !== userId)
+      );
+      setLiveError('');
+    } catch (err) {
+      setLiveError(err.message);
+    }
+  }
+
+  async function copyInvite() {
+    if (!activeMatch) return;
+
+    const link = `${window.location.origin}/invite/${activeMatch.id}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopyState('Copied');
+      window.setTimeout(() => setCopyState(''), 1600);
+    } catch (_) {
+      setCopyState('Copy unavailable');
+    }
+  }
+
+  async function enableNotifications() {
+    if (!('Notification' in window)) return;
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+  }
+
   return <div className="home-page flux-home-next">
-    <section className="next-hero">
+    {activeMatch && <section className="home-match-hub">
+      <div className="home-match-glow" aria-hidden="true"></div>
+
+      <div className="home-match-top">
+        <div>
+          <div className="home-match-live-pill">
+            <span></span>
+            ACTIVE MATCH
+          </div>
+          <p className="eyebrow">YOUR RIDE IS NOW ON HOME</p>
+          <h1>{matchTitle}</h1>
+          <p className="home-match-route">
+            <span>→</span>
+            {activeMatch.destinationLabel}
+          </p>
+        </div>
+
+        <div className="home-match-countdown">
+          <small>{formatDeparture(activeMatch.departureTime)}</small>
+          <strong>{countdownLabel(activeMatch.departureTime, now)}</strong>
+          <span>{activeMatch.status?.replaceAll('_', ' ')}</span>
+        </div>
+      </div>
+
+      <div className="home-match-members">
+        {members.map((member, index) => <div className="home-match-member" key={member.id || member.userId}>
+          <span className={`home-match-avatar avatar-tone-${index % 3}`}>
+            {member.initials || member.userName?.slice(0, 1)}
+          </span>
+          <div>
+            <strong>{Number(member.userId) === userId ? 'You' : member.userName}</strong>
+            <small>
+              {member.verified ? '✓ Verified · ' : ''}
+              {member.ready ? 'Ready' : 'Not ready'}
+            </small>
+          </div>
+        </div>)}
+      </div>
+
+      <div className="home-match-stats">
+        <div><span>PASSENGERS</span><strong>{members.length}/4</strong></div>
+        <div><span>READY</span><strong>{readyCount}/{members.length}</strong></div>
+        <div><span>LIVE NOW</span><strong>{liveLocations.length}</strong></div>
+        <div><span>ROAD ROUTE</span><strong>{activeMatch.routeDistanceKm ? `${Number(activeMatch.routeDistanceKm).toFixed(1)} km` : 'Ready'}</strong></div>
+      </div>
+
+      <div className="home-match-primary-actions">
+        <Link to={`/groups/${activeMatch.id}`} className="btn next-primary-btn home-ride-main">
+          Open ride hub <span>↗</span>
+        </Link>
+        <Link to={`/groups/${activeMatch.id}#coordination`} className="btn next-secondary-btn">
+          Chat
+        </Link>
+        <Link to={`/groups/${activeMatch.id}#live-map`} className="btn next-secondary-btn">
+          Live map
+        </Link>
+      </div>
+
+      <div className="home-feature-actions">
+        <button type="button" className={`home-feature-action ${currentMember?.ready ? 'is-active' : ''}`} onClick={toggleReady} disabled={!currentMember || readyBusy}>
+          <span className="home-feature-icon">✓</span>
+          <div>
+            <strong>{currentMember?.ready ? 'You’re ready' : 'Mark me ready'}</strong>
+            <small>{readyBusy ? 'Updating…' : `${readyCount}/${members.length} ready`}</small>
+          </div>
+        </button>
+
+        <button type="button" className={`home-feature-action ${liveSharing ? 'is-live' : ''}`} onClick={liveSharing ? stopLiveLocation : startLiveLocation}>
+          <span className="home-feature-icon">◎</span>
+          <div>
+            <strong>{liveSharing ? 'Live location ON' : 'Share live location'}</strong>
+            <small>{liveSharing ? 'Tap to stop sharing' : 'Visible to this group only'}</small>
+          </div>
+        </button>
+
+        <Link to={`/groups/${activeMatch.id}#meeting-point`} className="home-feature-action">
+          <span className="home-feature-icon">M</span>
+          <div>
+            <strong>Meeting point</strong>
+            <small>Open the suggested meetup</small>
+          </div>
+        </Link>
+
+        <button type="button" className="home-feature-action" onClick={copyInvite}>
+          <span className="home-feature-icon">↗</span>
+          <div>
+            <strong>{copyState || 'Invite someone'}</strong>
+            <small>Copy the group invite link</small>
+          </div>
+        </button>
+
+        {notificationPermission !== 'unsupported' &&
+          <button type="button" className={`home-feature-action ${notificationPermission === 'granted' ? 'is-active' : ''}`} onClick={enableNotifications} disabled={notificationPermission === 'granted'}>
+            <span className="home-feature-icon">◉</span>
+            <div>
+              <strong>{notificationPermission === 'granted' ? 'Notifications ON' : 'Enable notifications'}</strong>
+              <small>Messages, members and ride updates</small>
+            </div>
+          </button>}
+      </div>
+
+      {liveError && <p className="form-error home-live-error">{liveError}</p>}
+
+      <p className="home-match-note">
+        Everything for this match is now reachable from Home. Use the Ride Hub when you want the full map, meeting point and group chat together.
+      </p>
+    </section>}
+
+    <section className={`next-hero ${activeMatch ? 'home-has-active-match' : ''}`}>
       <div className="next-hero-aurora aurora-one" aria-hidden="true"></div>
       <div className="next-hero-aurora aurora-two" aria-hidden="true"></div>
       <div className="next-hero-grain" aria-hidden="true"></div>
@@ -45,18 +386,22 @@ export default function Home() {
         <div className="next-status-pill"><span></span> Route matching is live</div>
         <p className="hero-eyebrow">HEY {name.split(' ')[0].toUpperCase()}</p>
         <h1 className="next-hero-title">
-          Stop looking for a ride.<br />
-          <span>Find your people.</span>
+          {activeMatch ? <>Your next ride is already<br /><span>coming together.</span></> : <>Stop looking for a ride.<br /><span>Find your people.</span></>}
         </h1>
         <p className="next-hero-subtitle">
-          FLUX matches students by real road overlap, timing and pickup detour — then gives the group one place to coordinate everything.
+          {activeMatch
+            ? 'Your active match is pinned above. Chat, readiness, live location, meeting point and invites are one tap away.'
+            : 'FLUX matches students by real road overlap, timing and pickup detour — then gives the group one place to coordinate everything.'}
         </p>
 
         <div className="next-hero-actions">
-          <Link to="/find" className="btn next-primary-btn">
+          {activeMatch ? <Link to={`/groups/${activeMatch.id}`} className="btn next-primary-btn">
+            Open my active ride
+            <span className="btn-arrow">↗</span>
+          </Link> : <Link to="/find" className="btn next-primary-btn">
             Find people on my route
             <span className="btn-arrow">↗</span>
-          </Link>
+          </Link>}
           <Link to="/my-trips" className="btn next-secondary-btn">
             Open my trips
             <span>→</span>
