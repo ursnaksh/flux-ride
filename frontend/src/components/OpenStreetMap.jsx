@@ -152,6 +152,28 @@ function fitMap(map, points) {
   }
 }
 
+function livePinIcon(L, item, isCurrentUser, isFocused) {
+  const rawName = isCurrentUser
+    ? 'YOU'
+    : String(item.userName || '?').trim().slice(0, 2).toUpperCase();
+
+  const accuracy = Number.isFinite(item.accuracyMeters)
+    ? `±${Math.round(item.accuracyMeters)}m`
+    : 'LIVE';
+
+  return L.divIcon({
+    className: '',
+    html: `<div class="flux-live-person-pin ${isCurrentUser ? 'is-you' : ''} ${isFocused ? 'is-focused' : ''}">
+      <span class="flux-live-pulse"></span>
+      <strong>${rawName}</strong>
+      <small>${accuracy}</small>
+    </div>`,
+    iconSize: [54, 54],
+    iconAnchor: [27, 27],
+    popupAnchor: [0, -28]
+  });
+}
+
 function SearchBox({ title, value, onSelect, onClear, placeholder, disabled = false }) {
   const [query, setQuery] = useState(value?.label || '');
   const [results, setResults] = useState([]);
@@ -433,81 +455,39 @@ export function LocationMapPicker({
   </div>;
 }
 
-export function GroupMap({ destination, members = [], routeGeometry, meetingPoint, liveLocations = [] }) {
+export function GroupMap({
+  destination,
+  members = [],
+  routeGeometry,
+  meetingPoint,
+  liveLocations = [],
+  currentUserId,
+  focusLiveUserId
+}) {
   const container = useRef(null);
   const mapRef = useRef(null);
+  const layerRef = useRef(null);
+  const firstFitRef = useRef(false);
+  const previousFocusRef = useRef(null);
 
   useEffect(() => {
     let active = true;
+
     ensureLeaflet().then(L => {
-      if (!active || !container.current) return;
-      const map = L.map(container.current, { scrollWheelZoom: true }).setView(DEFAULT_CENTER, 12);
+      if (!active || !container.current || mapRef.current) return;
+
+      const map = L.map(container.current, {
+        scrollWheelZoom: true,
+        zoomControl: true
+      }).setView(DEFAULT_CENTER, 12);
+
       L.tileLayer(TILE_URL, {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
-      const layer = L.layerGroup().addTo(map);
-      const points = [];
 
-      if (routeGeometry) {
-        try {
-          const route = JSON.parse(routeGeometry);
-          if (Array.isArray(route) && route.length > 1) {
-            const roadPoints = route
-              .filter(point => Array.isArray(point) && point.length >= 2)
-              .map(([lng, lat]) => [lat, lng]);
-            if (roadPoints.length > 1) {
-              L.polyline(roadPoints, { weight: 5, opacity: 0.82 }).addTo(layer);
-              points.push(...roadPoints);
-            }
-          }
-        } catch (_) {
-          // Older trips may not contain route geometry.
-        }
-      }
-
-      members
-        .filter(member => Number.isFinite(member.pickupLatitude) && Number.isFinite(member.pickupLongitude))
-        .forEach(member => {
-          const point = [member.pickupLatitude, member.pickupLongitude];
-          points.push(point);
-          L.marker(point, { icon: pinIcon(L, 'pickup') })
-            .bindPopup(`${member.userName} · ${member.pickup}`)
-            .addTo(layer);
-        });
-
-      if (destination && Number.isFinite(destination.lat) && Number.isFinite(destination.lng)) {
-        const point = [destination.lat, destination.lng];
-        points.push(point);
-        L.marker(point, { icon: pinIcon(L, 'destination') })
-          .bindPopup(destination.label || 'Destination')
-          .addTo(layer);
-      }
-
-      if (meetingPoint && Number.isFinite(meetingPoint.lat) && Number.isFinite(meetingPoint.lng)) {
-        const point = [meetingPoint.lat, meetingPoint.lng];
-        points.push(point);
-        L.marker(point, { icon: pinIcon(L, 'meeting') })
-          .bindPopup(meetingPoint.label || 'Suggested meeting point')
-          .addTo(layer);
-      }
-
-      liveLocations
-        .filter(item => Number.isFinite(item.latitude) && Number.isFinite(item.longitude))
-        .forEach(item => {
-          const point = [item.latitude, item.longitude];
-          points.push(point);
-          L.marker(point, {
-            icon: pinIcon(L, 'live'),
-            zIndexOffset: 1200
-          })
-            .bindPopup(`${item.userName} · live location`)
-            .bindTooltip(`${item.userName} · live`, { direction: 'top', offset: [0, -34] })
-            .addTo(layer);
-        });
-
-      fitMap(map, points);
       mapRef.current = map;
+      layerRef.current = L.layerGroup().addTo(map);
       window.setTimeout(() => map.invalidateSize(), 0);
     }).catch(() => {});
 
@@ -515,8 +495,216 @@ export function GroupMap({ destination, members = [], routeGeometry, meetingPoin
       active = false;
       if (mapRef.current) mapRef.current.remove();
       mapRef.current = null;
+      layerRef.current = null;
+      firstFitRef.current = false;
     };
-  }, [destination?.lat, destination?.lng, members, routeGeometry, meetingPoint?.lat, meetingPoint?.lng, liveLocations]);
+  }, []);
 
-  return <div ref={container} className="osm-map group-osm-map" aria-label="Map showing group pickup points, route and destination" />;
+  useEffect(() => {
+    const element = container.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        mapRef.current?.invalidateSize(false);
+      });
+    });
+
+    observer.observe(element);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const L = window.L;
+    const map = mapRef.current;
+    const layer = layerRef.current;
+    if (!L || !map || !layer) return;
+
+    layer.clearLayers();
+
+    const overviewPoints = [];
+    const liveByUser = new Map(
+      liveLocations
+        .filter(item =>
+          Number.isFinite(item.latitude)
+          && Number.isFinite(item.longitude)
+        )
+        .map(item => [Number(item.userId), item])
+    );
+
+    if (routeGeometry) {
+      try {
+        const route = JSON.parse(routeGeometry);
+        if (Array.isArray(route) && route.length > 1) {
+          const roadPoints = route
+            .filter(point => Array.isArray(point) && point.length >= 2)
+            .map(([lng, lat]) => [lat, lng]);
+
+          if (roadPoints.length > 1) {
+            L.polyline(roadPoints, {
+              weight: 5,
+              opacity: 0.78
+            }).addTo(layer);
+
+            overviewPoints.push(...roadPoints);
+          }
+        }
+      } catch (_) {
+        // Older trips may not contain route geometry.
+      }
+    }
+
+    members
+      .filter(member =>
+        Number.isFinite(member.pickupLatitude)
+        && Number.isFinite(member.pickupLongitude)
+      )
+      .forEach(member => {
+        const point = [
+          member.pickupLatitude,
+          member.pickupLongitude
+        ];
+
+        overviewPoints.push(point);
+
+        L.marker(point, {
+          icon: pinIcon(L, 'pickup'),
+          opacity: liveByUser.has(Number(member.userId)) ? 0.48 : 0.82
+        })
+          .bindPopup(`${member.userName} · pickup · ${member.pickup}`)
+          .addTo(layer);
+      });
+
+    if (
+      destination
+      && Number.isFinite(destination.lat)
+      && Number.isFinite(destination.lng)
+    ) {
+      const point = [destination.lat, destination.lng];
+      overviewPoints.push(point);
+
+      L.marker(point, {
+        icon: pinIcon(L, 'destination')
+      })
+        .bindPopup(destination.label || 'Destination')
+        .addTo(layer);
+    }
+
+    if (
+      meetingPoint
+      && Number.isFinite(meetingPoint.lat)
+      && Number.isFinite(meetingPoint.lng)
+    ) {
+      const point = [meetingPoint.lat, meetingPoint.lng];
+      overviewPoints.push(point);
+
+      L.circle(point, {
+        radius: 200,
+        weight: 1,
+        opacity: 0.38,
+        fillOpacity: 0.04
+      }).addTo(layer);
+
+      L.marker(point, {
+        icon: pinIcon(L, 'meeting'),
+        zIndexOffset: 800
+      })
+        .bindPopup(meetingPoint.label || 'Suggested meeting point')
+        .addTo(layer);
+    }
+
+    let focusedPoint = null;
+
+    liveLocations
+      .filter(item =>
+        Number.isFinite(item.latitude)
+        && Number.isFinite(item.longitude)
+      )
+      .forEach(item => {
+        const point = [item.latitude, item.longitude];
+        const isCurrentUser =
+          Number(item.userId) === Number(currentUserId);
+        const isFocused =
+          Number(item.userId) === Number(focusLiveUserId);
+
+        overviewPoints.push(point);
+
+        if (
+          Number.isFinite(item.accuracyMeters)
+          && item.accuracyMeters > 0
+        ) {
+          L.circle(point, {
+            radius: Math.min(item.accuracyMeters, 250),
+            weight: 1,
+            opacity: isCurrentUser ? 0.42 : 0.26,
+            fillOpacity: isCurrentUser ? 0.08 : 0.045
+          }).addTo(layer);
+        }
+
+        const marker = L.marker(point, {
+          icon: livePinIcon(
+            L,
+            item,
+            isCurrentUser,
+            isFocused
+          ),
+          zIndexOffset: isFocused
+            ? 1900
+            : isCurrentUser
+              ? 1600
+              : 1400
+        })
+          .bindPopup(
+            `${isCurrentUser ? 'You' : item.userName} · live location`
+          )
+          .addTo(layer);
+
+        if (isFocused) {
+          focusedPoint = point;
+          marker.openPopup();
+        }
+      });
+
+    if (focusedPoint) {
+      map.flyTo(
+        focusedPoint,
+        Math.max(map.getZoom(), 16),
+        { duration: 0.55 }
+      );
+    } else {
+      const focusWasCleared =
+        previousFocusRef.current != null
+        && focusLiveUserId == null;
+
+      if (!firstFitRef.current || focusWasCleared) {
+        fitMap(map, overviewPoints);
+        firstFitRef.current = true;
+      }
+    }
+
+    previousFocusRef.current = focusLiveUserId ?? null;
+  }, [
+    destination?.lat,
+    destination?.lng,
+    members,
+    routeGeometry,
+    meetingPoint?.lat,
+    meetingPoint?.lng,
+    liveLocations,
+    currentUserId,
+    focusLiveUserId
+  ]);
+
+  return <div
+    ref={container}
+    className="osm-map group-osm-map"
+    aria-label="Live map showing passenger pickups, meeting point, route and live positions"
+  />;
 }
+
