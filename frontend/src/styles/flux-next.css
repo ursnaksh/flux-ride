@@ -2900,3 +2900,262 @@ a, button, input {
 @media (pointer: coarse), (prefers-reduced-motion: reduce) {
   .ambient-pointer-glow { display: none; }
 }
+
+
+/* ==========================================================
+   MAP LAYOUT HOTFIX — keep the map inside its own column
+   ========================================================== */
+
+html,
+body,
+.app-shell,
+.app-main {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.find-page-map-first {
+  width: min(100%, 1400px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.map-booking-shell {
+  display: grid;
+  grid-template-columns: minmax(340px, 405px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 735px;
+}
+
+.booking-sheet {
+  position: relative;
+  z-index: 20;
+  grid-column: 1;
+  grid-row: 1;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  top: auto;
+  width: 100%;
+  height: 735px;
+  max-height: 735px;
+  min-width: 0;
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.booking-map-stage {
+  position: relative;
+  z-index: 1;
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  min-width: 0;
+  height: 735px;
+  min-height: 735px;
+  overflow: hidden;
+}
+
+.booking-map-stage .location-picker,
+.booking-map-stage .osm-map {
+  width: 100%;
+  min-width: 0;
+  height: 735px;
+  min-height: 735px;
+}
+
+.booking-map-stage .osm-map {
+  position: relative;
+  z-index: 0;
+}
+
+.booking-map-head {
+  top: 18px;
+  left: 18px;
+  right: auto;
+  width: min(230px, calc(100% - 36px));
+  max-width: 230px;
+}
+
+.booking-map-stage .location-searches {
+  top: 18px;
+  left: 262px;
+  right: 18px;
+  min-width: 0;
+  z-index: 630;
+}
+
+.booking-map-stage .map-tool-row {
+  top: 112px;
+  right: 18px;
+  left: auto;
+  z-index: 625;
+}
+
+.booking-map-stage .map-instruction {
+  top: 168px;
+  right: 18px;
+  left: auto;
+  max-width: 390px;
+  z-index: 620;
+}
+
+.booking-map-stage .road-route-summary {
+  right: 18px;
+  bottom: 18px;
+  z-index: 620;
+}
+
+.booking-map-stage .map-credit-note {
+  left: 18px;
+  right: auto;
+  bottom: 8px;
+  max-width: calc(100% - 320px);
+}
+
+@media (max-width: 1180px) {
+  .map-booking-shell {
+    grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+  }
+
+  .booking-map-head {
+    width: 210px;
+    max-width: 210px;
+  }
+
+  .booking-map-stage .location-searches {
+    left: 242px;
+  }
+}
+
+@media (max-width: 960px) {
+  .map-booking-shell {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    min-height: 0;
+  }
+
+  .booking-map-stage {
+    grid-column: 1;
+    grid-row: 1;
+    height: 620px;
+    min-height: 620px;
+  }
+
+  .booking-map-stage .location-picker,
+  .booking-map-stage .osm-map {
+    height: 620px;
+    min-height: 620px;
+  }
+
+  .booking-sheet {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .booking-map-head {
+    top: 14px;
+    left: 14px;
+    width: 205px;
+    max-width: 205px;
+  }
+
+  .booking-map-stage .location-searches {
+    top: 86px;
+    left: 14px;
+    right: 14px;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .booking-map-stage .map-tool-row {
+    top: 178px;
+    right: 14px;
+  }
+
+  .booking-map-stage .map-instruction {
+    top: 234px;
+    right: 14px;
+  }
+
+  .booking-map-stage .map-credit-note {
+    left: 14px;
+    max-width: calc(100% - 300px);
+  }
+}
+
+@media (max-width: 700px) {
+  .map-booking-shell {
+    gap: 10px;
+  }
+
+  .booking-map-stage {
+    height: 600px;
+    min-height: 600px;
+    border-radius: 20px;
+    border-left: 1px solid var(--nx-line);
+    border-right: 1px solid var(--nx-line);
+  }
+
+  .booking-map-stage .location-picker,
+  .booking-map-stage .osm-map {
+    height: 600px;
+    min-height: 600px;
+  }
+
+  .booking-map-head {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+  }
+
+  .booking-map-stage .location-searches {
+    top: 78px;
+    left: 10px;
+    right: 10px;
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .booking-map-stage .map-tool-row {
+    top: 228px;
+    left: 10px;
+    right: 10px;
+  }
+
+  .booking-map-stage .map-instruction {
+    display: none;
+  }
+
+  .booking-map-stage .road-route-summary {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+  }
+
+  .booking-map-stage .map-credit-note {
+    display: none;
+  }
+
+  .booking-sheet {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    top: auto;
+    width: 100%;
+    max-height: none;
+    height: auto;
+    margin: 0;
+    border-radius: 20px;
+  }
+}
