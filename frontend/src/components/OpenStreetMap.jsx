@@ -260,6 +260,23 @@ export function LocationMapPicker({
   }, []);
 
   useEffect(() => {
+    const element = container.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => mapRef.current?.invalidateSize(false));
+    });
+
+    observer.observe(element);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const handleClick = event => {
