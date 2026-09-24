@@ -3,7 +3,7 @@ import axiosClient from '../api/axiosClient';
 import RideChat from './RideChat';
 import { formatDeparture, money } from '../utils/trips';
 
-export default function PoolCard({ pool, onPoolChange }) {
+export default function PoolCard({ pool, onPoolChange, showChat = true }) {
   const [snapshot, setSnapshot] = useState(pool);
   const [readyBusy, setReadyBusy] = useState(false);
   const [actionError, setActionError] = useState('');
@@ -96,7 +96,7 @@ export default function PoolCard({ pool, onPoolChange }) {
 
     {actionError && <p className="form-error">{actionError}</p>}
 
-    {members.length > 1 && <RideChat
+    {showChat && members.length > 1 && <RideChat
       groupId={snapshot.id}
       members={members}
     />}
