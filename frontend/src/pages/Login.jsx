@@ -14,13 +14,14 @@ export default function Login() {
   const [demoCode, setDemoCode] = useState('');
   const [resendIn, setResendIn] = useState(0);
   const [authConfig, setAuthConfig] = useState({
-    otpRequired: false,
+    otpRequired: true,
     otpAvailable: false,
     demoMode: false,
     codeLength: 6,
     resendAfterSeconds: 30
   });
   const [configLoading, setConfigLoading] = useState(true);
+  const [serverState, setServerState] = useState('checking');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const pending = useRef(false);
@@ -28,19 +29,34 @@ export default function Login() {
   useEffect(() => {
     let active = true;
 
-    axiosClient.get('/api/users/auth-config')
+    const wakeTimer = window.setTimeout(() => {
+      if (active) setServerState('waking');
+    }, 2500);
+
+    axiosClient.get('/api/users/auth-config', {
+      timeout: 130000
+    })
       .then(response => {
-        if (active && response.data) setAuthConfig(response.data);
+        if (!active) return;
+        if (response.data) setAuthConfig(response.data);
+        setServerState('ready');
+        setError('');
       })
       .catch(() => {
-        // If config cannot be loaded, the normal server error handling will
-        // surface when the user submits. Do not lock the UI here.
+        if (!active) return;
+        setServerState('error');
+        setError('FLUX server did not wake up. Tap retry and we’ll try again.');
       })
       .finally(() => {
-        if (active) setConfigLoading(false);
+        if (!active) return;
+        window.clearTimeout(wakeTimer);
+        setConfigLoading(false);
       });
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.clearTimeout(wakeTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -124,6 +140,8 @@ export default function Login() {
         name: mode === 'register' ? name.trim() : null,
         phone: phone.trim(),
         purpose: mode.toUpperCase()
+      }, {
+        timeout: 130000
       });
 
       setMaskedPhone(response.data.maskedPhone || phone.trim());
@@ -177,7 +195,9 @@ export default function Login() {
     try {
       const response = await axiosClient.post('/api/users/' + mode, mode === 'register'
         ? { name: name.trim(), phone: phone.trim() }
-        : { phone: phone.trim() });
+        : { phone: phone.trim() }, {
+          timeout: 130000
+        });
 
       finishLogin(response.data);
     } catch (err) {
@@ -268,6 +288,14 @@ export default function Login() {
           <button className={mode === 'login' ? 'active' : ''} onClick={() => resetVerification('login')} disabled={loading}>Log in</button>
         </div>}
 
+        {serverState === 'waking' && <div className="server-wake-note">
+          <span></span>
+          <div>
+            <strong>Waking FLUX server…</strong>
+            <small>Our free backend can sleep when unused. This can take around a minute.</small>
+          </div>
+        </div>}
+
         <form onSubmit={submit} className="form next-auth-form">
           {otpStage === 'details' ? <>
             {mode === 'register' && <label className="field next-field">
@@ -328,7 +356,9 @@ export default function Login() {
 
           <button className="btn next-primary-btn btn-block auth-submit" disabled={loading || configLoading}>
             {configLoading
-              ? 'Checking security…'
+              ? serverState === 'waking'
+                ? 'Waking FLUX server…'
+                : 'Checking security…'
               : loading
                 ? authConfig.otpRequired && otpStage === 'otp'
                   ? 'Verifying…'
