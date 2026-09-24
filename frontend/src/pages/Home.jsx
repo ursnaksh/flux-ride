@@ -63,6 +63,9 @@ export default function Home() {
   const [notificationPermission, setNotificationPermission] = useState(
     typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
   );
+  const [matchFlash, setMatchFlash] = useState(
+    () => sessionStorage.getItem('flux_match_flash') === '1'
+  );
 
   const liveWatch = useRef(null);
   const lastLiveSentAt = useRef(0);
@@ -133,6 +136,13 @@ export default function Home() {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!matchFlash) return undefined;
+    sessionStorage.removeItem('flux_match_flash');
+    const timer = window.setTimeout(() => setMatchFlash(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [matchFlash]);
 
   useEffect(() => () => {
     if (liveWatch.current != null && navigator.geolocation) {
@@ -269,6 +279,14 @@ export default function Home() {
   }
 
   return <div className="home-page flux-home-next">
+    {matchFlash && activeMatch && <div className="home-match-flash" role="status">
+      <span>✓</span>
+      <div>
+        <strong>You’re matched.</strong>
+        <small>Your ride is now on Home — everything you need is below.</small>
+      </div>
+    </div>}
+
     {activeMatch && <section className="home-match-hub">
       <div className="home-match-glow" aria-hidden="true"></div>
 
@@ -377,7 +395,40 @@ export default function Home() {
       </p>
     </section>}
 
-    <section className={`next-hero ${activeMatch ? 'home-has-active-match' : ''}`}>
+    {activeMatch && <section className="home-next-steps" aria-label="What to do next">
+      <div className="home-next-step-head">
+        <div>
+          <p className="eyebrow">WHAT TO DO NEXT</p>
+          <h2>Three simple steps.</h2>
+        </div>
+        <Link to={`/groups/${activeMatch.id}`} className="text-link">Open full ride →</Link>
+      </div>
+      <div className="home-next-step-grid">
+        <button type="button" onClick={toggleReady} disabled={!currentMember || readyBusy} className={currentMember?.ready ? 'done' : ''}>
+          <span>1</span>
+          <div>
+            <strong>{currentMember?.ready ? 'Ready confirmed' : 'Confirm you’re ready'}</strong>
+            <small>{currentMember?.ready ? 'You’re set for this ride.' : 'Tell the group you’re ready to leave.'}</small>
+          </div>
+        </button>
+        <Link to={`/groups/${activeMatch.id}#meeting-point`}>
+          <span>2</span>
+          <div>
+            <strong>Check the meeting point</strong>
+            <small>Know where everyone should meet.</small>
+          </div>
+        </Link>
+        <Link to={`/groups/${activeMatch.id}#coordination`}>
+          <span>3</span>
+          <div>
+            <strong>Coordinate in chat</strong>
+            <small>Agree on timing and external cab booking.</small>
+          </div>
+        </Link>
+      </div>
+    </section>}
+
+    {!activeMatch && <section className="next-hero">
       <div className="next-hero-aurora aurora-one" aria-hidden="true"></div>
       <div className="next-hero-aurora aurora-two" aria-hidden="true"></div>
       <div className="next-hero-grain" aria-hidden="true"></div>
@@ -461,7 +512,7 @@ export default function Home() {
           <span>estimated savings</span>
         </div>
       </div>
-    </section>
+    </section>}
 
     {commute && <section className="next-commute-card">
       <div className="next-commute-icon" aria-hidden="true">↻</div>
@@ -476,7 +527,7 @@ export default function Home() {
       </div>
     </section>}
 
-    <section className="next-section-head">
+    {!activeMatch && <><section className="next-section-head">
       <div>
         <p className="eyebrow">WHY IT FEELS DIFFERENT</p>
         <h2>Less searching. More moving.</h2>
@@ -508,7 +559,15 @@ export default function Home() {
         <p>Chat, readiness, live location, meeting point and invite links in one place.</p>
         <div className="feature-card-metric"><strong>1 room</strong><span>everything together</span></div>
       </article>
-    </section>
+    </section></>}
+
+    {activeMatch && <section className="home-secondary-actions">
+      <div>
+        <p className="eyebrow">NEED ANOTHER RIDE?</p>
+        <strong>Plan another route without losing this match.</strong>
+      </div>
+      <Link to="/find" className="btn next-secondary-btn">Find another ride <span>↗</span></Link>
+    </section>}
 
     <section className="team-flux-home-credit">
       <span className="credit-line"></span>
