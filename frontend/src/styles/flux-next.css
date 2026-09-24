@@ -3399,3 +3399,60 @@ body,
     border-radius: 18px;
   }
 }
+
+
+/* MOBILE SEARCH RESULTS HOTFIX
+   Search suggestions must take up real space instead of floating over
+   the destination field, map controls, or map. */
+@media (max-width: 960px) {
+  .booking-map-stage .map-search-block {
+    overflow: visible;
+  }
+
+  .booking-map-stage .map-search-results {
+    position: static !important;
+    inset: auto !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    width: 100%;
+    max-width: 100%;
+    max-height: min(240px, 34vh);
+    margin: 8px 0 0;
+    z-index: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .booking-map-stage .map-search-results button {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .booking-map-stage .map-search-results span {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .booking-map-stage .selected-place {
+    max-height: none;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .booking-map-stage .selected-place p {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 560px) {
+  .booking-map-stage .map-search-results {
+    max-height: 210px;
+  }
+}
