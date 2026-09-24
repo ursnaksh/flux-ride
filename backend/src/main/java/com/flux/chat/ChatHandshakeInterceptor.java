@@ -2,6 +2,7 @@ package com.flux.chat;
 
 import com.flux.model.SharedTrip;
 import com.flux.model.SharedTripMember;
+import com.flux.service.JwtService;
 import com.flux.service.SharedTripService;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -16,9 +17,13 @@ import java.util.Map;
 public class ChatHandshakeInterceptor implements HandshakeInterceptor {
 
     private final SharedTripService sharedTripService;
+    private final JwtService jwtService;
 
-    public ChatHandshakeInterceptor(SharedTripService sharedTripService) {
+    public ChatHandshakeInterceptor(
+            SharedTripService sharedTripService,
+            JwtService jwtService) {
         this.sharedTripService = sharedTripService;
+        this.jwtService = jwtService;
     }
 
     @Override
@@ -35,9 +40,16 @@ public class ChatHandshakeInterceptor implements HandshakeInterceptor {
                 .toSingleValueMap();
 
         Long groupId = parseLong(params.get("groupId"));
-        Long userId = parseLong(params.get("userId"));
+        String token = params.get("token");
 
-        if (groupId == null || userId == null) {
+        if (groupId == null || token == null || token.isBlank()) {
+            return false;
+        }
+
+        JwtService.AuthenticatedIdentity identity;
+        try {
+            identity = jwtService.verify(token);
+        } catch (Exception ex) {
             return false;
         }
 
@@ -50,7 +62,9 @@ public class ChatHandshakeInterceptor implements HandshakeInterceptor {
 
         SharedTripMember member = trip.getMembers()
                 .stream()
-                .filter(item -> item.getUserId().equals(userId))
+                .filter(item ->
+                        item.getUserId().equals(identity.userId())
+                )
                 .findFirst()
                 .orElse(null);
 
@@ -59,7 +73,7 @@ public class ChatHandshakeInterceptor implements HandshakeInterceptor {
         }
 
         attributes.put("groupId", groupId);
-        attributes.put("userId", userId);
+        attributes.put("userId", identity.userId());
         attributes.put("userName", member.getUserName());
         return true;
     }

@@ -1,10 +1,16 @@
 package com.flux.controller;
 
 import com.flux.dto.ApiResponse;
+import com.flux.dto.AuthResponse;
 import com.flux.dto.OtpRequestResponse;
+import com.flux.dto.StudentVerificationRequestResponse;
 import com.flux.model.User;
+import com.flux.security.AuthContext;
+import com.flux.service.JwtService;
 import com.flux.service.PhoneOtpService;
+import com.flux.service.StudentVerificationService;
 import com.flux.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -23,13 +29,19 @@ public class UserController {
 
     private final UserService userService;
     private final PhoneOtpService phoneOtpService;
+    private final JwtService jwtService;
+    private final StudentVerificationService studentVerificationService;
 
     @Autowired
     public UserController(
             UserService userService,
-            PhoneOtpService phoneOtpService) {
+            PhoneOtpService phoneOtpService,
+            JwtService jwtService,
+            StudentVerificationService studentVerificationService) {
         this.userService = userService;
         this.phoneOtpService = phoneOtpService;
+        this.jwtService = jwtService;
+        this.studentVerificationService = studentVerificationService;
     }
 
     public static class RegisterRequest {
@@ -69,6 +81,20 @@ public class UserController {
         public String otp;
     }
 
+    public static class StudentEmailRequest {
+        @NotBlank(message = "email is required")
+        public String email;
+    }
+
+    public static class StudentEmailVerifyRequest {
+        @NotBlank(message = "email is required")
+        public String email;
+
+        @NotBlank(message = "code is required")
+        @Pattern(regexp = "\\d{6}", message = "code must be 6 digits")
+        public String code;
+    }
+
     private enum AuthPurpose {
         REGISTER,
         LOGIN
@@ -83,6 +109,7 @@ public class UserController {
         config.put("codeLength", phoneOtpService.getOtpLength());
         config.put("resendAfterSeconds", phoneOtpService.getResendSeconds());
         config.put("expiresInSeconds", phoneOtpService.getExpirySeconds());
+        config.put("session", "jwt");
 
         return ResponseEntity.ok(
                 ApiResponse.success("Auth configuration fetched", config)
@@ -124,7 +151,7 @@ public class UserController {
     }
 
     @PostMapping("/otp/verify")
-    public ResponseEntity<ApiResponse<User>> verifyOtp(
+    public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(
             @Valid @RequestBody OtpVerifyRequest request) {
 
         AuthPurpose purpose = parsePurpose(request.purpose);
@@ -148,13 +175,13 @@ public class UserController {
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Phone verified successfully",
-                        user
+                        authResponse(user)
                 )
         );
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<User>> register(
+    public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Valid @RequestBody RegisterRequest request) {
 
         if (phoneOtpService.isRequired()) {
@@ -172,12 +199,12 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(
                         "Registered successfully",
-                        user
+                        authResponse(user)
                 ));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<User>> login(
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request) {
 
         if (phoneOtpService.isRequired()) {
@@ -191,8 +218,114 @@ public class UserController {
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Logged in successfully",
+                        authResponse(user)
+                )
+        );
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<User>> me(
+            HttpServletRequest request) {
+
+        User user = userService.getById(
+                AuthContext.requireUserId(request)
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Current user fetched",
                         user
                 )
+        );
+    }
+
+    @GetMapping("/student-verification/config")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> studentConfig() {
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put(
+                "enabled",
+                studentVerificationService.isEnabled()
+        );
+        config.put(
+                "available",
+                studentVerificationService.isAvailable()
+        );
+        config.put(
+                "domain",
+                studentVerificationService.getAllowedDomain()
+        );
+        config.put(
+                "codeLength",
+                studentVerificationService.getCodeLength()
+        );
+        config.put(
+                "expiresInSeconds",
+                studentVerificationService.getExpirySeconds()
+        );
+        config.put(
+                "resendAfterSeconds",
+                studentVerificationService.getResendSeconds()
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Student verification configuration fetched",
+                        config
+                )
+        );
+    }
+
+    @PostMapping("/student-verification/request")
+    public ResponseEntity<ApiResponse<StudentVerificationRequestResponse>>
+            requestStudentVerification(
+                    HttpServletRequest httpRequest,
+                    @Valid @RequestBody StudentEmailRequest request) {
+
+        Long userId = AuthContext.requireUserId(httpRequest);
+
+        StudentVerificationRequestResponse result =
+                studentVerificationService.requestCode(
+                        userId,
+                        request.email
+                );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Verification code sent to your VIT email",
+                        result
+                )
+        );
+    }
+
+    @PostMapping("/student-verification/verify")
+    public ResponseEntity<ApiResponse<User>> verifyStudentEmail(
+            HttpServletRequest httpRequest,
+            @Valid @RequestBody StudentEmailVerifyRequest request) {
+
+        Long userId = AuthContext.requireUserId(httpRequest);
+
+        User user = studentVerificationService.verifyCode(
+                userId,
+                request.email,
+                request.code
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "VIT student email verified",
+                        user
+                )
+        );
+    }
+
+    private AuthResponse authResponse(User user) {
+        JwtService.TokenResult token = jwtService.issue(user);
+
+        return new AuthResponse(
+                user,
+                token.token(),
+                token.expiresAtEpochSeconds()
         );
     }
 

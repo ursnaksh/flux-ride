@@ -22,9 +22,11 @@ import com.flux.dto.MatchResult;
 import com.flux.dto.PoolRequest;
 import com.flux.model.SharedTrip;
 import com.flux.model.TripRequest;
+import com.flux.security.AuthContext;
 import com.flux.service.SharedTripService;
 import com.flux.service.TripRequestService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
@@ -45,7 +47,12 @@ public class SharedTripController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<SharedTrip>> joinOrCreate(
+            HttpServletRequest httpRequest,
             @Valid @RequestBody PoolRequest request) {
+
+        request.setUserId(
+                AuthContext.requireUserId(httpRequest)
+        );
 
         SharedTrip sharedTrip =
                 sharedTripService.joinOrCreate(request);
@@ -78,10 +85,16 @@ public class SharedTripController {
      */
     @GetMapping("/matches/{tripRequestId}")
     public ResponseEntity<ApiResponse<List<MatchResult>>> findMatches(
+            HttpServletRequest request,
             @PathVariable Long tripRequestId) {
 
         TripRequest tripRequest =
                 tripRequestService.getById(tripRequestId);
+
+        AuthContext.requireSameUser(
+                request,
+                tripRequest.getUserId()
+        );
 
         List<MatchResult> matches =
                 sharedTripService.findMatches(tripRequest);
@@ -100,8 +113,14 @@ public class SharedTripController {
      */
     @PostMapping("/{sharedTripId}/join/{tripRequestId}")
     public ResponseEntity<ApiResponse<SharedTrip>> joinSharedTrip(
+            HttpServletRequest request,
             @PathVariable Long sharedTripId,
             @PathVariable Long tripRequestId) {
+
+        AuthContext.requireSameUser(
+                request,
+                tripRequestService.getById(tripRequestId).getUserId()
+        );
 
         SharedTrip sharedTrip =
                 sharedTripService.joinSharedTrip(
@@ -119,7 +138,14 @@ public class SharedTripController {
 
     @PostMapping("/from-request/{tripRequestId}")
     public ResponseEntity<ApiResponse<SharedTrip>> createFromRequest(
+            HttpServletRequest request,
             @PathVariable Long tripRequestId) {
+
+        AuthContext.requireSameUser(
+                request,
+                tripRequestService.getById(tripRequestId).getUserId()
+        );
+
         SharedTrip group = sharedTripService.createFromRequest(tripRequestId);
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success("Shared trip created successfully", group)
@@ -128,7 +154,10 @@ public class SharedTripController {
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<ApiResponse<List<SharedTrip>>> getUserSharedTrips(
+            HttpServletRequest request,
             @PathVariable Long userId) {
+
+        AuthContext.requireSameUser(request, userId);
 
         List<SharedTrip> sharedTrips =
                 sharedTripService.getSharedTripsForUser(userId);
@@ -156,15 +185,19 @@ public class SharedTripController {
 
     @GetMapping("/{sharedTripId}/live-locations")
     public ResponseEntity<ApiResponse<List<LiveLocationView>>> getLiveLocations(
+            HttpServletRequest request,
             @PathVariable Long sharedTripId,
-            @RequestParam Long userId) {
+            @RequestParam(required = false) Long userId) {
+
+        Long authenticatedUserId =
+                AuthContext.requireUserId(request);
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Live locations fetched",
                         sharedTripService.getLiveLocations(
                                 sharedTripId,
-                                userId
+                                authenticatedUserId
                         )
                 )
         );
@@ -172,14 +205,19 @@ public class SharedTripController {
 
     @PostMapping("/{sharedTripId}/location/{userId}")
     public ResponseEntity<ApiResponse<SharedTrip>> updateLiveLocation(
+            HttpServletRequest httpRequest,
             @PathVariable Long sharedTripId,
             @PathVariable Long userId,
             @Valid @RequestBody LiveLocationRequest request) {
 
+        AuthContext.requireSameUser(httpRequest, userId);
+        Long authenticatedUserId =
+                AuthContext.requireUserId(httpRequest);
+
         SharedTrip sharedTrip =
                 sharedTripService.updateLiveLocation(
                         sharedTripId,
-                        userId,
+                        authenticatedUserId,
                         Boolean.TRUE.equals(request.getSharing()),
                         request.getLatitude(),
                         request.getLongitude()
@@ -197,14 +235,19 @@ public class SharedTripController {
 
     @PostMapping("/{sharedTripId}/ready/{userId}")
     public ResponseEntity<ApiResponse<SharedTrip>> updateReady(
+            HttpServletRequest request,
             @PathVariable Long sharedTripId,
             @PathVariable Long userId,
             @RequestParam boolean ready) {
 
+        AuthContext.requireSameUser(request, userId);
+        Long authenticatedUserId =
+                AuthContext.requireUserId(request);
+
         SharedTrip sharedTrip =
                 sharedTripService.updateReady(
                         sharedTripId,
-                        userId,
+                        authenticatedUserId,
                         ready
                 );
 
@@ -220,13 +263,18 @@ public class SharedTripController {
 
     @DeleteMapping("/{sharedTripId}/members/{userId}")
     public ResponseEntity<ApiResponse<SharedTrip>> leaveSharedTrip(
+            HttpServletRequest request,
             @PathVariable Long sharedTripId,
             @PathVariable Long userId) {
+
+        AuthContext.requireSameUser(request, userId);
+        Long authenticatedUserId =
+                AuthContext.requireUserId(request);
 
         SharedTrip sharedTrip =
                 sharedTripService.leaveSharedTrip(
                         sharedTripId,
-                        userId
+                        authenticatedUserId
                 );
 
         return ResponseEntity.ok(

@@ -24,6 +24,15 @@ public class User {
     @Column(name = "phone_verified_at")
     private LocalDateTime phoneVerifiedAt;
 
+    @Column(name = "student_email", unique = true)
+    private String studentEmail;
+
+    @Column(name = "student_verified", nullable = false)
+    private Boolean studentVerified = Boolean.FALSE;
+
+    @Column(name = "student_verified_at")
+    private LocalDateTime studentVerifiedAt;
+
     public User() {
     }
 
@@ -70,6 +79,30 @@ public class User {
 
     public void setPhoneVerifiedAt(LocalDateTime phoneVerifiedAt) {
         this.phoneVerifiedAt = phoneVerifiedAt;
+    }
+
+    public String getStudentEmail() {
+        return studentEmail;
+    }
+
+    public void setStudentEmail(String studentEmail) {
+        this.studentEmail = studentEmail;
+    }
+
+    public boolean isStudentVerified() {
+        return Boolean.TRUE.equals(studentVerified);
+    }
+
+    public void setStudentVerified(Boolean studentVerified) {
+        this.studentVerified = Boolean.TRUE.equals(studentVerified);
+    }
+
+    public LocalDateTime getStudentVerifiedAt() {
+        return studentVerifiedAt;
+    }
+
+    public void setStudentVerifiedAt(LocalDateTime studentVerifiedAt) {
+        this.studentVerifiedAt = studentVerifiedAt;
     }
 
     /** Two-letter initials used for the colored avatar circles in the UI. */
