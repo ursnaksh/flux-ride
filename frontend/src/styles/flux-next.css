@@ -3159,3 +3159,243 @@ body,
     border-radius: 20px;
   }
 }
+
+
+/* ==========================================================
+   MOBILE MAP FIX — no floating controls over the map
+   On phones/tablets every control returns to normal document flow.
+   ========================================================== */
+@media (max-width: 960px) {
+  .find-page-map-first {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+    overflow: visible;
+  }
+
+  .map-booking-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .booking-map-stage {
+    position: relative;
+    isolation: isolate;
+    order: 1;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 12px;
+    border-radius: 22px;
+  }
+
+  .booking-map-stage::after {
+    display: none;
+  }
+
+  .booking-map-head,
+  .booking-map-stage .location-searches,
+  .booking-map-stage .map-tool-row,
+  .booking-map-stage .map-instruction,
+  .booking-map-stage .road-route-summary,
+  .booking-map-stage .route-loading,
+  .booking-map-stage > .location-picker > .form-error,
+  .booking-map-stage .map-credit-note {
+    position: static !important;
+    inset: auto !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    z-index: auto;
+  }
+
+  .booking-map-head {
+    margin: 0 0 10px;
+    padding: 12px 13px;
+    border-radius: 14px;
+  }
+
+  .booking-map-stage .location-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .booking-map-stage .location-searches {
+    order: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .booking-map-stage .map-search-block {
+    width: 100%;
+    min-width: 0;
+    padding: 10px;
+    box-shadow: none;
+  }
+
+  .booking-map-stage .map-search-row {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .booking-map-stage .map-search-row input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .booking-map-stage .map-tool-row {
+    order: 2;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .booking-map-stage .map-pin-mode,
+  .booking-map-stage .map-secondary-tools {
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .booking-map-stage .map-pin-mode button,
+  .booking-map-stage .map-secondary-tools .btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .booking-map-stage .map-instruction {
+    order: 3;
+    display: flex;
+    margin: 0;
+    padding: 9px 10px;
+  }
+
+  .booking-map-stage .route-loading,
+  .booking-map-stage > .location-picker > .form-error {
+    order: 4;
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .booking-map-stage .road-route-summary {
+    order: 5;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .booking-map-stage .road-route-summary > div {
+    min-width: 0;
+    box-shadow: none;
+  }
+
+  .booking-map-stage .osm-map {
+    order: 6;
+    position: relative !important;
+    z-index: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: clamp(330px, 54vh, 470px) !important;
+    min-height: 330px !important;
+    margin: 0;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .booking-map-stage .map-credit-note {
+    order: 7;
+    display: block;
+    margin: 0;
+    padding: 0 2px;
+  }
+
+  .booking-sheet {
+    order: 2;
+    position: relative !important;
+    inset: auto !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    z-index: 0;
+    width: 100% !important;
+    max-width: none;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    overflow: visible;
+    border-radius: 22px;
+  }
+
+  .leaflet-container,
+  .leaflet-pane,
+  .leaflet-control-container {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .find-page-map-first {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .booking-map-stage {
+    padding: 9px;
+    border-radius: 18px;
+  }
+
+  .booking-map-stage .map-search-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .booking-map-stage .map-search-row .btn {
+    width: 100%;
+  }
+
+  .booking-map-stage .map-tool-row {
+    gap: 7px;
+  }
+
+  .booking-map-stage .map-pin-mode,
+  .booking-map-stage .map-secondary-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-map-stage .map-instruction {
+    display: none;
+  }
+
+  .booking-map-stage .osm-map {
+    height: 360px !important;
+    min-height: 360px !important;
+  }
+
+  .booking-sheet {
+    padding: 17px;
+    border-radius: 18px;
+  }
+}
