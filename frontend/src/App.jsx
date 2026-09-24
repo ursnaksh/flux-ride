@@ -11,7 +11,12 @@ import AmbientGlow from './components/AmbientGlow.jsx';
 function RequireUser() {
   const id = Number(localStorage.getItem('flux_user_id'));
   const location = useLocation();
-  const signedIn = Number.isSafeInteger(id) && id > 0 && localStorage.getItem('flux_role') === 'USER';
+  const token = localStorage.getItem('flux_auth_token');
+  const signedIn =
+    Number.isSafeInteger(id)
+    && id > 0
+    && localStorage.getItem('flux_role') === 'USER'
+    && Boolean(token);
 
   if (signedIn) return <Outlet />;
 
