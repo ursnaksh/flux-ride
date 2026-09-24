@@ -199,6 +199,20 @@ export default function GroupRoom() {
     return () => { alive = false; };
   }, [rawMeetingPoint?.lat, rawMeetingPoint?.lng]);
 
+  useEffect(() => {
+    if (loading || !group || !window.location.hash) return;
+
+    const targetId = window.location.hash.slice(1);
+    const timer = window.setTimeout(() => {
+      document.getElementById(targetId)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [loading, group?.id]);
+
   async function enableNotifications() {
     if (!('Notification' in window)) return;
     const permission = await Notification.requestPermission();
@@ -349,7 +363,7 @@ export default function GroupRoom() {
         </section>}
 
         <div className="group-room-layout">
-          <section className="group-room-map-preview">
+          <section className="group-room-map-preview" id="live-map">
             <div className="group-map-title-row">
               <div>
                 <p className="eyebrow">{tripMode ? 'TRIP MAP' : 'LIVE GROUP MAP'}</p>
@@ -399,7 +413,7 @@ export default function GroupRoom() {
               })}
             </div>}
 
-            {meetingPoint && <div className="meeting-suggestion smart-meeting-suggestion">
+            {meetingPoint && <div className="meeting-suggestion smart-meeting-suggestion" id="meeting-point">
               <span className="meeting-marker">M</span>
               <div className="meeting-copy">
                 <strong>{meetingLookup ? 'Finding a useful meeting place…' : meetingPoint.label}</strong>
@@ -416,7 +430,9 @@ export default function GroupRoom() {
             </p>
           </section>
 
-          <PoolCard pool={group} onPoolChange={setGroup} />
+          <div id="coordination" className="group-coordination-anchor">
+            <PoolCard pool={group} onPoolChange={setGroup} />
+          </div>
         </div>
         </>}
     </div>
