@@ -45,6 +45,15 @@ public class SharedTripMember {
     @JsonIgnore
     private LocalDateTime liveLocationUpdatedAt;
 
+    @JsonIgnore
+    private Double liveAccuracyMeters;
+
+    @JsonIgnore
+    private Double liveSpeedMetersPerSecond;
+
+    @JsonIgnore
+    private Double liveHeadingDegrees;
+
     public SharedTripMember() {}
 
     public SharedTripMember(SharedTrip sharedTrip, Long userId, String userName, String pickup) {
@@ -104,6 +113,18 @@ public class SharedTripMember {
     @JsonIgnore
     public LocalDateTime getLiveLocationUpdatedAt() { return liveLocationUpdatedAt; }
     public void setLiveLocationUpdatedAt(LocalDateTime value) { liveLocationUpdatedAt = value; }
+
+    @JsonIgnore
+    public Double getLiveAccuracyMeters() { return liveAccuracyMeters; }
+    public void setLiveAccuracyMeters(Double value) { liveAccuracyMeters = value; }
+
+    @JsonIgnore
+    public Double getLiveSpeedMetersPerSecond() { return liveSpeedMetersPerSecond; }
+    public void setLiveSpeedMetersPerSecond(Double value) { liveSpeedMetersPerSecond = value; }
+
+    @JsonIgnore
+    public Double getLiveHeadingDegrees() { return liveHeadingDegrees; }
+    public void setLiveHeadingDegrees(Double value) { liveHeadingDegrees = value; }
 
     public String getInitials() {
         if (userName == null || userName.isBlank()) return "?";
