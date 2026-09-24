@@ -105,7 +105,8 @@ public class UserController {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("otpRequired", phoneOtpService.isRequired());
         config.put("otpAvailable", phoneOtpService.isAvailable());
-        config.put("channel", "sms");
+        config.put("demoMode", phoneOtpService.isDemoMode());
+        config.put("channel", phoneOtpService.isDemoMode() ? "demo" : "sms");
         config.put("codeLength", phoneOtpService.getOtpLength());
         config.put("resendAfterSeconds", phoneOtpService.getResendSeconds());
         config.put("expiresInSeconds", phoneOtpService.getExpirySeconds());
