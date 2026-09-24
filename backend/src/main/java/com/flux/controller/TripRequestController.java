@@ -15,8 +15,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.flux.dto.ApiResponse;
 import com.flux.dto.CreateTripRequest;
 import com.flux.model.TripRequest;
+import com.flux.security.AuthContext;
 import com.flux.service.TripRequestService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
@@ -34,7 +36,12 @@ public class TripRequestController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<TripRequest>> createTripRequest(
+            HttpServletRequest httpRequest,
             @Valid @RequestBody CreateTripRequest request) {
+
+        request.setUserId(
+                AuthContext.requireUserId(httpRequest)
+        );
 
         TripRequest tripRequest =
                 tripRequestService.createTripRequest(request);
@@ -50,7 +57,10 @@ public class TripRequestController {
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<ApiResponse<List<TripRequest>>> getUserTripRequests(
+            HttpServletRequest request,
             @PathVariable Long userId) {
+
+        AuthContext.requireSameUser(request, userId);
 
         List<TripRequest> tripRequests =
                 tripRequestService.getRequestsForUser(userId);
