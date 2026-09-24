@@ -1,5 +1,7 @@
 package com.flux.model;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.*;
 
 @Entity
@@ -15,6 +17,12 @@ public class User {
 
     @Column(nullable = false, unique = true)
     private String phone;
+
+    @Column(name = "phone_verified", nullable = false)
+    private Boolean phoneVerified = Boolean.FALSE;
+
+    @Column(name = "phone_verified_at")
+    private LocalDateTime phoneVerifiedAt;
 
     public User() {
     }
@@ -46,6 +54,22 @@ public class User {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public boolean isPhoneVerified() {
+        return Boolean.TRUE.equals(phoneVerified);
+    }
+
+    public void setPhoneVerified(Boolean phoneVerified) {
+        this.phoneVerified = Boolean.TRUE.equals(phoneVerified);
+    }
+
+    public LocalDateTime getPhoneVerifiedAt() {
+        return phoneVerifiedAt;
+    }
+
+    public void setPhoneVerifiedAt(LocalDateTime phoneVerifiedAt) {
+        this.phoneVerifiedAt = phoneVerifiedAt;
     }
 
     /** Two-letter initials used for the colored avatar circles in the UI. */
