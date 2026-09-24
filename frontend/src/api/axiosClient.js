@@ -5,7 +5,9 @@ const API_BASE_URL =
 
 const LAST_OK_KEY = 'flux_backend_last_ok';
 const WAKE_AFTER_MS = 8 * 60 * 1000;
-const WAKE_TIMEOUT_MS = 130000;
+const WAKE_TIMEOUT_MS = 180000;
+const WAKE_ATTEMPT_TIMEOUT_MS = 25000;
+const WAKE_RETRY_DELAY_MS = 5000;
 
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,
@@ -18,7 +20,7 @@ const axiosClient = axios.create({
 
 const wakeClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: WAKE_TIMEOUT_MS,
+  timeout: WAKE_ATTEMPT_TIMEOUT_MS,
   withCredentials: false,
   headers: {
     'Content-Type': 'application/json'
@@ -76,20 +78,49 @@ export async function wakeFluxServer(force = false) {
 
   emitServerState('waking');
 
-  wakePromise = wakeClient
-    .get('/api/users/auth-config', {
-      headers: {
-        'Cache-Control': 'no-cache'
+  wakePromise = (async () => {
+    const deadline = Date.now() + WAKE_TIMEOUT_MS;
+    let lastError = null;
+
+    while (Date.now() < deadline) {
+      try {
+        await wakeClient.get('/api/users/auth-config', {
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
+
+        markServerReady();
+        return true;
+      } catch (error) {
+        lastError = error;
+        const status = error.response?.status;
+        const transient =
+          !error.response
+          || [502, 503, 504].includes(status);
+
+        if (!transient) {
+          throw error;
+        }
+
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+
+        await new Promise(resolve =>
+          setTimeout(
+            resolve,
+            Math.min(WAKE_RETRY_DELAY_MS, remaining)
+          )
+        );
       }
-    })
-    .then(() => {
-      markServerReady();
-      return true;
-    })
+    }
+
+    throw lastError || new Error('FLUX backend wake timed out.');
+  })()
     .catch(error => {
       emitServerState('error', {
         message:
-          'FLUX backend did not wake up. Please retry in a moment.'
+          'FLUX backend did not wake up after repeated attempts. Please retry.'
       });
       throw error;
     })
