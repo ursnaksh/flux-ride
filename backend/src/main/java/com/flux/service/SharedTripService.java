@@ -253,6 +253,7 @@ public class SharedTripService {
                         tripRequest.getPickupLongitude()
                 );
         member.setVerified(user.isPhoneVerified());
+        member.setStudentVerified(user.isStudentVerified());
 
         sharedTrip.getMembers().add(member);
 
