@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: free
     region: singapore
-    branch: feature/find-co-passengers
+    branch: main
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     envVars:
