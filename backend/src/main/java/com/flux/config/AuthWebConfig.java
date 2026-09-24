@@ -23,6 +23,7 @@ public class AuthWebConfig implements WebMvcConfigurer {
                         "/api/users/register",
                         "/api/users/login",
                         "/api/users/otp/**",
+                        "/api/users/firebase/**",
                         "/api/pools/*/invite"
                 );
     }
