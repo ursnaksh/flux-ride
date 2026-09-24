@@ -9,6 +9,8 @@ export default function Navbar() {
     && Number(localStorage.getItem('flux_user_id')) > 0
     && Boolean(localStorage.getItem('flux_auth_token'));
   const verified = localStorage.getItem('flux_phone_verified') === 'true';
+  const studentVerified =
+    localStorage.getItem('flux_student_verified') === 'true';
 
   function logout() {
     [
@@ -47,11 +49,12 @@ export default function Navbar() {
 
       <div className="navbar-right flux-nav-actions">{signedIn ? <>
         <NotificationCenter />
-        <div className="flux-user-chip">
+        <Link to="/profile" className="flux-user-chip flux-user-chip-link" aria-label="Open my profile">
           <span className="flux-user-avatar">{(name?.trim()?.[0] || 'F').toUpperCase()}</span>
           <span>{name?.split(' ')[0] || 'there'}</span>
           {verified && <span className="nav-verified-badge" title="Phone verified" aria-label="Phone verified">✓</span>}
-        </div>
+          {studentVerified && <span className="nav-student-badge" title="VIT student verified" aria-label="VIT student verified">V</span>}
+        </Link>
         <button className="btn btn-ghost nav-logout" onClick={logout}>Log out</button>
       </> : <Link className="btn btn-primary nav-cta" to="/login">Get started <span>↗</span></Link>}</div>
     </header>
