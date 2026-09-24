@@ -9,5 +9,5 @@ WORKDIR /app
 COPY --from=build /workspace/build/libs/flux-backend-1.0.0.jar /app/app.jar
 USER 10001
 ENV JAVA_TOOL_OPTIONS="-Xmx256m -XX:MaxMetaspaceSize=160m -XX:+ExitOnOutOfMemoryError -Duser.timezone=Asia/Kolkata"
-EXPOSE 10000
+EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
