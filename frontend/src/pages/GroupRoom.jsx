@@ -318,37 +318,28 @@ export default function GroupRoom() {
     members.length - liveDetails.length
   );
 
+  const currentMember = members.find(
+    member => Number(member.userId) === userId
+  );
+
+  function jumpTo(sectionId) {
+    document.getElementById(sectionId)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
+
   return <>
     <div className={`page-container group-room-page ${tripMode ? 'trip-mode-active' : ''}`}>
-      <div className="group-room-header">
+      <div className="group-room-header ride-control-header">
         <div>
-          <p className="eyebrow">YOUR SHARED RIDE</p>
-          <h1 className="page-title">{tripMode ? 'Trip Mode' : 'Group Room'}</h1>
+          <p className="eyebrow">RIDE CONTROL</p>
+          <h1 className="page-title">{group?.destinationLabel || 'Your shared ride'}</h1>
           <p className="page-subtitle">
-            {tripMode
-              ? 'Your group is coming together. Keep the meeting point, readiness, live positions and chat in one place.'
-              : 'See who’s travelling with you, get ready together and coordinate the ride.'}
+            One place for your people, chat, live location and meeting point.
           </p>
         </div>
-
-        <div className="group-room-actions">
-          {group && <button className="btn btn-ghost" onClick={() => setShowInvite(true)}>Invite people</button>}
-          {members.length > 1 && !liveSharing &&
-            <button
-              className="btn btn-ghost live-location-button"
-              onClick={startLiveLocation}
-              disabled={liveStarting}
-            >
-              {liveStarting ? 'Finding GPS…' : '◎ Share live location'}
-            </button>}
-          {liveSharing &&
-            <button className="btn btn-ghost live-location-button is-sharing" onClick={stopLiveLocation}>● Live location on</button>}
-          {notificationPermission !== 'unsupported' && notificationPermission !== 'granted' &&
-            <button className="btn btn-ghost" onClick={enableNotifications}>Enable notifications</button>}
-          {notificationPermission === 'granted' &&
-            <span className="notification-enabled">● Notifications on</span>}
-          <Link to="/my-trips" className="btn btn-ghost">← My trips</Link>
-        </div>
+        <Link to="/" className="btn btn-ghost">← Home</Link>
       </div>
 
       {liveError && <p className="form-error live-location-error">{liveError}</p>}
@@ -359,18 +350,75 @@ export default function GroupRoom() {
           <p className="form-error">{error}</p>
           <Link to="/my-trips" className="btn btn-primary">Back to My trips</Link>
         </div> : <>
-        {tripMode && <section className="trip-mode-banner">
-          <div>
-            <p className="eyebrow">LIVE TRIP MODE</p>
-            <h2>{countdown}</h2>
-            <p>{readyCount}/{members.length} passengers ready · {group.destinationLabel}</p>
+        <section className={`ride-control-deck ${tripMode ? 'is-trip-mode' : ''}`}>
+          <div className="ride-control-summary">
+            <div className="ride-control-state">
+              <span></span>
+              {tripMode ? 'TRIP MODE' : members.length > 1 ? 'GROUP ACTIVE' : 'WAITING FOR PASSENGERS'}
+            </div>
+            <div className="ride-control-route">
+              <div>
+                <small>DESTINATION</small>
+                <strong>{group.destinationLabel}</strong>
+              </div>
+              <div className="ride-control-countdown">
+                <small>DEPARTURE</small>
+                <strong>{countdown || 'Time pending'}</strong>
+              </div>
+            </div>
+            <div className="ride-control-stats">
+              <div><span>PEOPLE</span><strong>{members.length}/4</strong></div>
+              <div><span>READY</span><strong>{readyCount}/{members.length}</strong></div>
+              <div><span>LIVE</span><strong>{liveLocations.length}</strong></div>
+              <div><span>YOU</span><strong>{currentMember?.ready ? 'READY' : 'NOT READY'}</strong></div>
+            </div>
           </div>
-          <div className="trip-mode-progress" aria-label={`${readyCount} of ${members.length} passengers ready`}>
-            {members.map(member => <span key={member.id || member.userId} className={member.ready ? 'ready' : ''} title={member.userName} />)}
-          </div>
-        </section>}
 
-        <div className="group-room-layout">
+          <div className="ride-control-actions" aria-label="Ride controls">
+            <button type="button" onClick={() => jumpTo('chat')} disabled={members.length < 2}>
+              <span>01</span>
+              <div><strong>Chat</strong><small>{members.length > 1 ? 'Coordinate the ride' : 'Available after someone joins'}</small></div>
+            </button>
+
+            <button
+              type="button"
+              className={liveSharing ? 'is-active' : ''}
+              onClick={liveSharing ? stopLiveLocation : startLiveLocation}
+              disabled={members.length < 2 || liveStarting}
+            >
+              <span>02</span>
+              <div>
+                <strong>{liveStarting ? 'Finding GPS…' : liveSharing ? 'Live location ON' : 'Live location'}</strong>
+                <small>{members.length > 1 ? (liveSharing ? 'Tap to stop sharing' : 'Share with this ride') : 'Available after someone joins'}</small>
+              </div>
+            </button>
+
+            <button type="button" onClick={() => jumpTo('meeting-point')} disabled={!meetingPoint}>
+              <span>03</span>
+              <div><strong>Meeting point</strong><small>{meetingPoint ? 'See where to meet' : 'Calculated when pickups are available'}</small></div>
+            </button>
+
+            <button type="button" onClick={() => setShowInvite(true)}>
+              <span>04</span>
+              <div><strong>Invite</strong><small>Bring another passenger in</small></div>
+            </button>
+          </div>
+
+          <div className="ride-control-secondary">
+            <button type="button" className="text-link" onClick={() => jumpTo('people')}>People &amp; readiness ↓</button>
+            <button type="button" className="text-link" onClick={() => jumpTo('live-map')}>Map ↓</button>
+            {notificationPermission !== 'unsupported' && notificationPermission !== 'granted' &&
+              <button type="button" className="text-link" onClick={enableNotifications}>Enable notifications</button>}
+            {notificationPermission === 'granted' &&
+              <span className="ride-control-notification">● Notifications on</span>}
+          </div>
+        </section>
+
+        <div className="group-room-layout ride-control-layout">
+          <div id="coordination" className="group-coordination-anchor">
+            <PoolCard pool={group} onPoolChange={setGroup} roomMode />
+          </div>
+
           <section className="group-room-map-preview" id="live-map">
             <div className="group-map-title-row">
               <div>
@@ -478,9 +526,6 @@ export default function GroupRoom() {
             </p>
           </section>
 
-          <div id="coordination" className="group-coordination-anchor">
-            <PoolCard pool={group} onPoolChange={setGroup} />
-          </div>
         </div>
         </>}
     </div>
