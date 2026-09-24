@@ -74,6 +74,26 @@ public class JwtService {
         );
     }
 
+    private String deriveSigningKey(String sourceSecret) {
+        try {
+            MessageDigest digest =
+                    MessageDigest.getInstance("SHA-256");
+
+            byte[] bytes = digest.digest(
+                    ("flux-ride-jwt|" + sourceSecret)
+                            .getBytes(StandardCharsets.UTF_8)
+            );
+
+            return java.util.HexFormat.of()
+                    .formatHex(bytes);
+        } catch (Exception ex) {
+            throw new IllegalStateException(
+                    "Could not initialize JWT signing",
+                    ex
+            );
+        }
+    }
+
     public record TokenResult(
             String token,
             long expiresAtEpochSeconds) {
