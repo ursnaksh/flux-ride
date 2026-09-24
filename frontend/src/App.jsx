@@ -8,6 +8,7 @@ import GroupRoom from './pages/GroupRoom.jsx';
 import InviteGroup from './pages/InviteGroup.jsx';
 import Profile from './pages/Profile.jsx';
 import AmbientGlow from './components/AmbientGlow.jsx';
+import BackendStatus from './components/BackendStatus.jsx';
 
 function RequireUser() {
   const id = Number(localStorage.getItem('flux_user_id'));
@@ -29,6 +30,7 @@ export default function App() {
   const location = useLocation();
   return <div className="app-shell">
     <AmbientGlow />
+    <BackendStatus />
     <Navbar />
     <main key={location.pathname + location.search} className="app-main" id="main-content">
       <Routes>
