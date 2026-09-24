@@ -30,6 +30,7 @@ public class SharedTripMember {
     private Double pickupLatitude;
     private Double pickupLongitude;
     private Boolean ready = Boolean.FALSE;
+    private Boolean verified = Boolean.FALSE;
 
     @JsonIgnore
     private Boolean liveLocationSharing = Boolean.FALSE;
@@ -82,6 +83,8 @@ public class SharedTripMember {
     public void setPickupLongitude(Double value) { pickupLongitude = value; }
     public boolean isReady() { return Boolean.TRUE.equals(ready); }
     public void setReady(Boolean value) { ready = Boolean.TRUE.equals(value); }
+    public boolean isVerified() { return Boolean.TRUE.equals(verified); }
+    public void setVerified(Boolean value) { verified = Boolean.TRUE.equals(value); }
 
     @JsonIgnore
     public boolean isLiveLocationSharing() { return Boolean.TRUE.equals(liveLocationSharing); }
