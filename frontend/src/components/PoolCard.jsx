@@ -61,7 +61,8 @@ export default function PoolCard({ pool, onPoolChange, showChat = true }) {
           <div className="member-name-row">
             <strong>
               {Number(member.userId) === userId ? `${member.userName} (You)` : member.userName}
-              {member.verified && <span className="member-verified-badge" title="Phone verified" aria-label="Phone verified">✓ Verified</span>}
+              {member.verified && <span className="member-verified-badge" title="Phone verified" aria-label="Phone verified">✓ Phone</span>}
+              {member.studentVerified && <span className="member-student-badge" title="VIT student verified" aria-label="VIT student verified">VIT</span>}
             </strong>
             <span className={`ready-pill ${member.ready ? 'is-ready' : ''}`}>
               {member.ready ? 'Ready' : 'Not ready'}
