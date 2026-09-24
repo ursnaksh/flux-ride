@@ -81,6 +81,19 @@ public class UserController {
         public String otp;
     }
 
+    public static class FirebaseVerifyRequest {
+        public String name;
+
+        @NotBlank(message = "phone is required")
+        public String phone;
+
+        @NotBlank(message = "purpose is required")
+        public String purpose;
+
+        @NotBlank(message = "idToken is required")
+        public String idToken;
+    }
+
     public static class StudentEmailRequest {
         @NotBlank(message = "email is required")
         public String email;
@@ -106,7 +119,7 @@ public class UserController {
         config.put("otpRequired", phoneOtpService.isRequired());
         config.put("otpAvailable", phoneOtpService.isAvailable());
         config.put("demoMode", phoneOtpService.isDemoMode());
-        config.put("channel", phoneOtpService.isDemoMode() ? "demo" : "sms");
+        config.put("channel", phoneOtpService.getChannel());
         config.put("codeLength", phoneOtpService.getOtpLength());
         config.put("resendAfterSeconds", phoneOtpService.getResendSeconds());
         config.put("expiresInSeconds", phoneOtpService.getExpirySeconds());
@@ -162,6 +175,51 @@ public class UserController {
         phoneOtpService.verifyOtp(
                 canonicalPhone,
                 request.otp
+        );
+
+        User user = purpose == AuthPurpose.REGISTER
+                ? userService.registerVerified(
+                        request.name,
+                        canonicalPhone
+                )
+                : userService.loginVerified(
+                        canonicalPhone
+                );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Phone verified successfully",
+                        authResponse(user)
+                )
+        );
+    }
+
+    @PostMapping("/firebase/verify")
+    public ResponseEntity<ApiResponse<AuthResponse>> verifyFirebase(
+            @Valid @RequestBody FirebaseVerifyRequest request) {
+
+        AuthPurpose purpose = parsePurpose(request.purpose);
+        String canonicalPhone =
+                phoneOtpService.normalizePhone(request.phone);
+
+        if (purpose == AuthPurpose.LOGIN
+                && !userService.existsByAnyPhone(canonicalPhone)) {
+            throw new com.flux.exception.ResourceNotFoundException(
+                    "No account found for this phone. Please create an account first."
+            );
+        }
+
+        if (purpose == AuthPurpose.REGISTER
+                && (request.name == null
+                || request.name.trim().length() < 2)) {
+            throw new IllegalArgumentException(
+                    "Please enter your name."
+            );
+        }
+
+        phoneOtpService.verifyFirebaseIdToken(
+                canonicalPhone,
+                request.idToken
         );
 
         User user = purpose == AuthPurpose.REGISTER
