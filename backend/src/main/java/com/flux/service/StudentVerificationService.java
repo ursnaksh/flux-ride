@@ -4,6 +4,7 @@ import com.flux.dto.StudentVerificationRequestResponse;
 import com.flux.exception.ResourceNotFoundException;
 import com.flux.model.StudentEmailVerification;
 import com.flux.model.User;
+import com.flux.repository.SharedTripRepository;
 import com.flux.repository.StudentEmailVerificationRepository;
 import com.flux.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +31,7 @@ public class StudentVerificationService {
 
     private final StudentEmailVerificationRepository verificationRepository;
     private final UserRepository userRepository;
+    private final SharedTripRepository sharedTripRepository;
     private final JavaMailSender mailSender;
     private final SecureRandom random = new SecureRandom();
 
@@ -63,9 +65,11 @@ public class StudentVerificationService {
     public StudentVerificationService(
             StudentEmailVerificationRepository verificationRepository,
             UserRepository userRepository,
+            SharedTripRepository sharedTripRepository,
             JavaMailSender mailSender) {
         this.verificationRepository = verificationRepository;
         this.userRepository = userRepository;
+        this.sharedTripRepository = sharedTripRepository;
         this.mailSender = mailSender;
     }
 
@@ -289,6 +293,20 @@ public class StudentVerificationService {
         user.setStudentVerifiedAt(LocalDateTime.now());
 
         User saved = userRepository.save(user);
+
+        sharedTripRepository.findSharedTripsByMemberUserId(userId)
+                .forEach(group -> {
+                    group.getMembers().stream()
+                            .filter(member ->
+                                    member.getUserId().equals(userId)
+                            )
+                            .forEach(member ->
+                                    member.setStudentVerified(true)
+                            );
+
+                    sharedTripRepository.save(group);
+                });
+
         verificationRepository.delete(verification);
         return saved;
     }
